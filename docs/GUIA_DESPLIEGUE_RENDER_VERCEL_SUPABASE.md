@@ -38,7 +38,7 @@ Esta guía detalla los pasos exactos y las variables de entorno necesarias para 
    * **Instance Type:** `Free` (o `Starter`)
 4. En la sección **Environment Variables**, agrega las siguientes variables:
 
-| Variable | Valor Recomendado | Descripción |
+| Variable | Valor Configurado para Tu Proyecto | Descripción |
 |---|---|---|
 | `APP_NAME` | `LimpyGo` | Nombre de la aplicación |
 | `APP_ENV` | `production` | Entorno de producción |
@@ -46,14 +46,14 @@ Esta guía detalla los pasos exactos y las variables de entorno necesarias para 
 | `APP_KEY` | `base64:...` | Genera una con `php artisan key:generate --show` |
 | `APP_URL` | `https://limpygo-backend.onrender.com` | Tu URL asignada en Render |
 | `DB_CONNECTION` | `pgsql` | Driver PostgreSQL para Supabase |
-| `DB_HOST` | `aws-0-sa-east-1.pooler.supabase.com` | Host del Pooler de Supabase |
-| `DB_PORT` | `6543` | Puerto del pooler |
-| `DB_DATABASE` | `postgres` | Nombre de la BD en Supabase |
-| `DB_USERNAME` | `postgres.xxxxxx` | Usuario con ref del proyecto |
-| `DB_PASSWORD` | `TuContraseñaSupabase` | Contraseña de Supabase |
-| `DB_SSLMODE` | `require` | Obligatorio para Supabase |
+| `DB_HOST` | `aws-0-sa-east-1.pooler.supabase.com` | Host del Pooler de Supabase (São Paulo) |
+| `DB_PORT` | `5432` | Puerto del Session Pooler (o 6543 Transaction) |
+| `DB_DATABASE` | `postgres` | Nombre de la base de datos |
+| `DB_USERNAME` | `postgres.jfbwrzzbebdehuucmipt` | Usuario con el ID de tu proyecto Supabase |
+| `DB_PASSWORD` | `70486379Josemagdiel` | Contraseña de tu base de datos Supabase |
+| `DB_SSLMODE` | `require` | Obligatorio para conexión cifrada con Supabase |
 | `AUTO_MIGRATE` | `true` | Ejecuta migraciones automáticamente al arrancar |
-| `AUTO_SEED` | `true` | Crea usuarios, empresas, servicios y órdenes demo automáticamente |
+| `AUTO_SEED` | `true` | Crea datos iniciales (empresas, servicios, usuarios) |
 | `FRONTEND_URL` | `https://tu-proyecto.vercel.app` | URL de tu frontend en Vercel |
 
 5. Haz clic en **Create Web Service**.

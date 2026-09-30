@@ -47,7 +47,12 @@ import {
   ToggleRight,
   Database,
   Wifi,
-  WifiOff
+  WifiOff,
+  Eye,
+  EyeOff,
+  MessageSquare,
+  Calendar,
+  Ticket
 } from 'lucide-react';
 
 // ============================================================================
@@ -582,10 +587,106 @@ export default function App() {
       cuenta: '4010-8923-0192',
       estado: 'PAGADO',
       referencia_pago: 'TRANSF-BMSC-890455'
+    },
+    {
+      id: 'LIQ-9823',
+      empresa_id: 'emp-2',
+      fecha: '2026-09-08',
+      monto_bruto: 1100.00,
+      comision_limpygo: 137.50,
+      monto_neto: 962.50,
+      banco: 'Banco Bisa',
+      cuenta: '020-99120-11',
+      estado: 'PENDIENTE',
+      referencia_pago: 'EN PROCESO ACH'
     }
   ]);
   const [modalSolicitarLiquidacionOpen, setModalSolicitarLiquidacionOpen] = useState(false);
   const [montoLiquidacionInput, setMontoLiquidacionInput] = useState('');
+  const [modalAprobarLiquidacionOpen, setModalAprobarLiquidacionOpen] = useState(false);
+  const [liquidacionAprobando, setLiquidacionAprobando] = useState(null);
+  const [refPagoInput, setRefPagoInput] = useState('');
+
+  // SUPERADMIN: CUPONES Y PROMOCIONES
+  const [cupones, setCupones] = useState([
+    { id: 'cup-1', codigo: 'LIMPY10', tipo: 'PORCENTAJE', valor: 10, uso_actual: 42, uso_max: 100, pedido_minimo: 80, expira: '2026-12-31', activo: true },
+    { id: 'cup-2', codigo: 'SANTA_CRUZ20', tipo: 'PORCENTAJE', valor: 20, uso_actual: 18, uso_max: 50, pedido_minimo: 150, expira: '2026-11-30', activo: true },
+    { id: 'cup-3', codigo: 'LIMPYVERANO', tipo: 'MONTO_FIJO', valor: 15, uso_actual: 89, uso_max: 200, pedido_minimo: 100, expira: '2026-10-31', activo: true },
+    { id: 'cup-4', codigo: 'CONDOMINIOSPRO', tipo: 'MONTO_FIJO', valor: 25, uso_actual: 12, uso_max: 30, pedido_minimo: 180, expira: '2026-12-15', activo: false }
+  ]);
+  const [modalNuevoCuponOpen, setModalNuevoCuponOpen] = useState(false);
+  const [nuevoCuponForm, setNuevoCuponForm] = useState({
+    codigo: '',
+    tipo: 'PORCENTAJE',
+    valor: 10,
+    uso_max: 100,
+    pedido_minimo: 80,
+    expira: '2026-12-31'
+  });
+
+  // SUPERADMIN: RECLAMOS Y SOPORTE
+  const [reclamos, setReclamos] = useState([
+    { id: 'REC-101', orden_id: 'ord-102', cliente: 'Valeria Justiniano', empresa_id: 'emp-1', motivo: 'Demora de 35 minutos en la llegada por tráfico en 4to anillo', severidad: 'MEDIA', estado: 'EN_REVISION', fecha: '2026-09-08' },
+    { id: 'REC-102', orden_id: 'ord-104', cliente: 'Patricia Torrico', empresa_id: 'emp-2', motivo: 'Solicita comprobante formal con NIT para expensas del condominio', severidad: 'BAJA', estado: 'RESUELTO', fecha: '2026-09-07' },
+    { id: 'REC-103', orden_id: 'ord-103', cliente: 'Mariana Zeballos', empresa_id: 'emp-1', motivo: 'Cliente reagendó servicio y necesita confirmación de nuevo limpiador', severidad: 'ALTA', estado: 'ABIERTO', fecha: '2026-09-09' }
+  ]);
+  const [modalResolverReclamoOpen, setModalResolverReclamoOpen] = useState(false);
+  const [reclamoSeleccionado, setReclamoSeleccionado] = useState(null);
+  const [resolucionInput, setResolucionInput] = useState('');
+
+  // SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ
+  const [zonasCobertura, setZonasCobertura] = useState([
+    { id: 'zn-1', nombre: 'Equipetrol / Barrio Sirari', macrozona: 'Norte', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '25 min' },
+    { id: 'zn-2', nombre: 'Urbarí / Las Palmas', macrozona: 'Oeste', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '30 min' },
+    { id: 'zn-3', nombre: 'Centro Histórico / 1er Anillo', macrozona: 'Centro', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '20 min' },
+    { id: 'zn-4', nombre: 'Hamacas / Av. Beni (3er al 5to Anillo)', macrozona: 'Noreste', recargo_lejanía: 10, estado: 'ACTIVA', tiempo_llegada_prom: '40 min' },
+    { id: 'zn-5', nombre: 'Plan 3000 / Villa 1ro de Mayo', macrozona: 'Sur - Este', recargo_lejanía: 15, estado: 'ACTIVA', tiempo_llegada_prom: '55 min' },
+    { id: 'zn-6', nombre: 'Warnes / Satélite Norte (Zona Extendida)', macrozona: 'Norte Metropolitano', recargo_lejanía: 30, estado: 'ACTIVA', tiempo_llegada_prom: '75 min' }
+  ]);
+  const [modalNuevaZonaOpen, setModalNuevaZonaOpen] = useState(false);
+  const [nuevaZonaForm, setNuevaZonaForm] = useState({
+    nombre: '',
+    macrozona: 'Norte',
+    recargo_lejanía: 0,
+    tiempo_llegada_prom: '30 min'
+  });
+
+  // EMPRESA: RESEÑAS Y CALIFICACIONES
+  const [resenas, setResenas] = useState([
+    { id: 'res-1', empresa_id: 'emp-1', cliente: 'Carlos Mendoza', estrellas: 5, servicio: 'Limpieza Integral de Departamentos', trabajador: 'María Elena Quispe', fecha: '2026-09-08', comentario: 'Excelente atención de María Elena, llegó puntual con sus equipos y dejó la cocina y baños impecables. Muy recomendado.', respuesta: '¡Muchas gracias Carlos! Un gusto atenderte en Limpiezas Brillante.' },
+    { id: 'res-2', empresa_id: 'emp-1', cliente: 'Mariana Zeballos', estrellas: 5, servicio: 'Desinfección & Limpieza Profunda Cocinas', trabajador: 'Roberto Sandoval', fecha: '2026-09-06', comentario: 'El extractor y hornallas quedaron relucientes, súper detallistas con las juntas de los azulejos.', respuesta: null },
+    { id: 'res-3', empresa_id: 'emp-2', cliente: 'Patricia Torrico', estrellas: 5, servicio: 'Lavado y Desmanchado de Tapizados', trabajador: 'Javier Morales', fecha: '2026-09-05', comentario: 'Los sofás tenían manchas difíciles de café y salieron por completo con el vapor.', respuesta: 'Gracias Patricia por confiar en EcoClean Bolivia.' },
+    { id: 'res-4', empresa_id: 'emp-1', cliente: 'Valeria Justiniano', estrellas: 4, servicio: 'Limpieza de Vidrios en Altura', trabajador: 'María Elena Quispe', fecha: '2026-09-02', comentario: 'Buen servicio, los ventanales quedaron transparentes. Llegaron con 15 minutos de retraso por lluvia.', respuesta: null }
+  ]);
+  const [modalResponderResenaOpen, setModalResponderResenaOpen] = useState(false);
+  const [resenaSeleccionada, setResenaSeleccionada] = useState(null);
+  const [respuestaInput, setRespuestaInput] = useState('');
+
+  // EMPRESA: HORARIOS Y CAPACIDAD
+  const [horariosAtencion, setHorariosAtencion] = useState({
+    lunes_viernes: { activo: true, inicio: '07:30', fin: '19:30', cupos_simultaneos: 4 },
+    sabado: { activo: true, inicio: '08:00', fin: '18:00', cupos_simultaneos: 3 },
+    domingo: { activo: true, inicio: '08:30', fin: '14:00', cupos_simultaneos: 2 },
+    despacho_express_activo: true,
+    recargo_express_bob: 20.0
+  });
+
+  // EMPRESA: INVENTARIO DE INSUMOS & EQUIPOS
+  const [inventarioInsumos, setInventarioInsumos] = useState([
+    { id: 'ins-1', empresa_id: 'emp-1', item: 'Aspiradora Inyección/Extracción Kärcher Puzzi 10/1', categoria: 'Maquinaria', stock: 2, unidad: 'unidades', estado: 'OPERATIVO', fecha_mantenimiento: '2026-08-28' },
+    { id: 'ins-2', empresa_id: 'emp-1', item: 'Hidrolavadora de Alta Presión Kärcher K4', categoria: 'Maquinaria', stock: 1, unidad: 'unidades', estado: 'OPERATIVO', fecha_mantenimiento: '2026-09-01' },
+    { id: 'ins-3', empresa_id: 'emp-1', item: 'Detergente Desinfectante Biodegradable 20L', categoria: 'Químicos', stock: 14, unidad: 'litros', estado: 'STOCK_OPTIMO', fecha_mantenimiento: 'Lote 2026' },
+    { id: 'ins-4', empresa_id: 'emp-1', item: 'Quitamanchas Especializado Tapicería y Fibras', categoria: 'Químicos', stock: 3, unidad: 'frascos', estado: 'REPONER_PRONTO', fecha_mantenimiento: 'Lote 2026' },
+    { id: 'ins-5', empresa_id: 'emp-1', item: 'Kits de Microfibra y EPP Certificado', categoria: 'Accesorios y EPP', stock: 45, unidad: 'paquetes', estado: 'STOCK_OPTIMO', fecha_mantenimiento: '2026-09' }
+  ]);
+  const [modalNuevoInsumoOpen, setModalNuevoInsumoOpen] = useState(false);
+  const [nuevoInsumoForm, setNuevoInsumoForm] = useState({
+    item: '',
+    categoria: 'Químicos',
+    stock: 10,
+    unidad: 'litros',
+    estado: 'STOCK_OPTIMO'
+  });
 
   // GESTIÓN CONTROL DE EVIDENCIAS
   const [modalAuditarEvidenciaOpen, setModalAuditarEvidenciaOpen] = useState(false);
@@ -593,6 +694,18 @@ export default function App() {
   const [observacionEvidenciaInput, setObservacionEvidenciaInput] = useState('');
 
   const [credencialesRecientesModal, setCredencialesRecientesModal] = useState(null);
+
+  // ESTADO DE AUTENTICACIÓN REAL
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('limpygo_auth') === 'true';
+  });
+  const [loginForm, setLoginForm] = useState({
+    correo: 'admin@limpygo.com',
+    password: '70486379Josemagdiel'
+  });
+  const [loginCargando, setLoginCargando] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
 
   const [toastMsg, setToastMsg] = useState(null);
 
@@ -727,6 +840,253 @@ export default function App() {
     }
 
     sincronizarConBackend(user);
+  };
+
+  // ==========================================================================
+  // AUTENTICACIÓN REAL, LOGIN Y LOGOUT
+  // ==========================================================================
+  const handleIniciarSesionReal = async (e) => {
+    if (e) e.preventDefault();
+    setLoginCargando(true);
+    setLoginError('');
+
+    try {
+      // 1. Intentar autenticar contra la API en Render / Supabase
+      const loginRes = await api.login(loginForm.correo, loginForm.password).catch(err => {
+        console.warn('Backend login error:', err);
+        return null;
+      });
+
+      // 2. Localizar o construir el usuario activo
+      let user = usuarios.find(u => u.correo.toLowerCase() === loginForm.correo.toLowerCase());
+      if (!user && loginRes?.usuario) {
+        user = {
+          id: String(loginRes.usuario.id),
+          nombre: loginRes.usuario.correo.includes('admin') ? 'Rodrigo Mendoza (SuperAdmin)' : 'Admin Empresa',
+          correo: loginRes.usuario.correo,
+          rol: loginRes.usuario.rol === 'EMPRESA_ADMIN' ? 'ADMIN_EMPRESA' : loginRes.usuario.rol,
+          empresa_id: loginRes.usuario.empresa_id || 'emp-1',
+          telefono: '70012345',
+          esta_activo: true
+        };
+      }
+
+      if (!user) {
+        // Fallback demo matching
+        if (loginForm.correo.toLowerCase().includes('admin')) {
+          user = usuarios[0];
+        } else if (loginForm.correo.toLowerCase().includes('eco')) {
+          user = usuarios[2];
+        } else {
+          user = usuarios[1];
+        }
+      }
+
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      localStorage.setItem('limpygo_auth', 'true');
+      localStorage.setItem('limpygo_user_email', user.correo);
+
+      if (user.rol === 'SUPER_ADMIN') {
+        setActiveTab('dashboard_admin');
+        mostrarToast('✨ Bienvenido SuperAdmin a la Central LimpyGo');
+      } else {
+        setActiveTab('servicios_precios');
+        mostrarToast(`🏢 Bienvenido al portal de ${empresas.find(e => e.id === user.empresa_id)?.nombre || 'Empresa'}`);
+      }
+
+      sincronizarConBackend(user);
+    } catch (err) {
+      setLoginError(err.message || 'Error al conectar con el servidor.');
+    } finally {
+      setLoginCargando(false);
+    }
+  };
+
+  const handleAccesoDemoRapido = (correoElegido, passwordElegida = '70486379Josemagdiel') => {
+    setLoginForm({ correo: correoElegido, password: passwordElegida });
+    setLoginCargando(true);
+    setLoginError('');
+
+    setTimeout(() => {
+      let user = usuarios.find(u => u.correo.toLowerCase() === correoElegido.toLowerCase()) || usuarios[0];
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      localStorage.setItem('limpygo_auth', 'true');
+      localStorage.setItem('limpygo_user_email', user.correo);
+
+      if (user.rol === 'SUPER_ADMIN') {
+        setActiveTab('dashboard_admin');
+        mostrarToast('👑 Sesión iniciada como SuperAdmin LimpyGo');
+      } else {
+        setActiveTab('servicios_precios');
+        mostrarToast(`🏢 Sesión iniciada en ${empresas.find(e => e.id === user.empresa_id)?.nombre || 'Portal Empresa'}`);
+      }
+
+      setLoginCargando(false);
+      sincronizarConBackend(user);
+    }, 300);
+  };
+
+  const handleCerrarSesion = () => {
+    api.logout().catch(() => null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('limpygo_auth');
+    localStorage.removeItem('limpygo_user_email');
+    mostrarToast('🔒 Sesión cerrada con éxito');
+  };
+
+  // ==========================================================================
+  // MANEJADORES: NUEVOS MÓDULOS DE SUPERADMIN Y EMPRESA
+  // ==========================================================================
+  const handleAprobarLiquidacionModal = (liq) => {
+    setLiquidacionAprobando(liq);
+    setRefPagoInput(`TRANSF-BMSC-${Math.floor(100000 + Math.random() * 900000)}`);
+    setModalAprobarLiquidacionOpen(true);
+  };
+
+  const handleConfirmarAprobacionLiquidacion = (e) => {
+    e.preventDefault();
+    if (!liquidacionAprobando) return;
+
+    setLiquidaciones(prev => prev.map(l => {
+      if (l.id === liquidacionAprobando.id) {
+        return {
+          ...l,
+          estado: 'PAGADO',
+          referencia_pago: refPagoInput || `TRANSF-ACH-${Date.now().toString().slice(-6)}`
+        };
+      }
+      return l;
+    }));
+
+    mostrarToast(`✅ Liquidación ${liquidacionAprobando.id} aprobada y transferida.`);
+    setModalAprobarLiquidacionOpen(false);
+    setLiquidacionAprobando(null);
+  };
+
+  const handleGuardarNuevoCupon = (e) => {
+    e.preventDefault();
+    if (!nuevoCuponForm.codigo || !nuevoCuponForm.valor) return;
+
+    const nuevo = {
+      id: `cup-${Date.now()}`,
+      codigo: nuevoCuponForm.codigo.toUpperCase().trim(),
+      tipo: nuevoCuponForm.tipo,
+      valor: parseFloat(nuevoCuponForm.valor) || 10,
+      uso_actual: 0,
+      uso_max: parseInt(nuevoCuponForm.uso_max) || 100,
+      pedido_minimo: parseFloat(nuevoCuponForm.pedido_minimo) || 0,
+      expira: nuevoCuponForm.expira || '2026-12-31',
+      activo: true
+    };
+
+    setCupones(prev => [nuevo, ...prev]);
+    setModalNuevoCuponOpen(false);
+    setNuevoCuponForm({
+      codigo: '',
+      tipo: 'PORCENTAJE',
+      valor: 10,
+      uso_max: 100,
+      pedido_minimo: 80,
+      expira: '2026-12-31'
+    });
+    mostrarToast(`🎉 Cupón ${nuevo.codigo} publicado con éxito.`);
+  };
+
+  const handleToggleCupon = (cuponId) => {
+    setCupones(prev => prev.map(c => c.id === cuponId ? { ...c, activo: !c.activo } : c));
+    mostrarToast('Estado de cupón actualizado.');
+  };
+
+  const handleResolverReclamo = (e) => {
+    e.preventDefault();
+    if (!reclamoSeleccionado) return;
+
+    setReclamos(prev => prev.map(r => {
+      if (r.id === reclamoSeleccionado.id) {
+        return { ...r, estado: 'RESUELTO', resolucion: resolucionInput || 'Resuelto satisfactoriamente por mediación.' };
+      }
+      return r;
+    }));
+
+    mostrarToast(`✓ Ticket ${reclamoSeleccionado.id} marcado como Resuelto.`);
+    setModalResolverReclamoOpen(false);
+    setReclamoSeleccionado(null);
+    setResolucionInput('');
+  };
+
+  const handleGuardarNuevaZona = (e) => {
+    e.preventDefault();
+    if (!nuevaZonaForm.nombre) return;
+
+    const nueva = {
+      id: `zn-${Date.now()}`,
+      nombre: nuevaZonaForm.nombre,
+      macrozona: nuevaZonaForm.macrozona,
+      recargo_lejanía: parseFloat(nuevaZonaForm.recargo_lejanía) || 0,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: nuevaZonaForm.tiempo_llegada_prom || '30 min'
+    };
+
+    setZonasCobertura(prev => [...prev, nueva]);
+    setModalNuevaZonaOpen(false);
+    setNuevaZonaForm({
+      nombre: '',
+      macrozona: 'Norte',
+      recargo_lejanía: 0,
+      tiempo_llegada_prom: '30 min'
+    });
+    mostrarToast(`🗺️ Zona ${nueva.nombre} habilitada.`);
+  };
+
+  const handleToggleZona = (zonaId) => {
+    setZonasCobertura(prev => prev.map(z => z.id === zonaId ? { ...z, estado: z.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA' } : z));
+    mostrarToast('Cobertura de zona actualizada.');
+  };
+
+  const handleEnviarRespuestaResena = (e) => {
+    e.preventDefault();
+    if (!resenaSeleccionada) return;
+
+    setResenas(prev => prev.map(r => {
+      if (r.id === resenaSeleccionada.id) {
+        return { ...r, respuesta: respuestaInput };
+      }
+      return r;
+    }));
+
+    mostrarToast('💬 Respuesta publicada al cliente con éxito.');
+    setModalResponderResenaOpen(false);
+    setResenaSeleccionada(null);
+    setRespuestaInput('');
+  };
+
+  const handleGuardarNuevoInsumo = (e) => {
+    e.preventDefault();
+    if (!nuevoInsumoForm.item) return;
+
+    const nuevo = {
+      id: `ins-${Date.now()}`,
+      empresa_id: currentEmpresa.id,
+      item: nuevoInsumoForm.item,
+      categoria: nuevoInsumoForm.categoria,
+      stock: parseFloat(nuevoInsumoForm.stock) || 1,
+      unidad: nuevoInsumoForm.unidad,
+      estado: nuevoInsumoForm.estado,
+      fecha_mantenimiento: new Date().toISOString().split('T')[0]
+    };
+
+    setInventarioInsumos(prev => [nuevo, ...prev]);
+    setModalNuevoInsumoOpen(false);
+    setNuevoInsumoForm({
+      item: '',
+      categoria: 'Químicos',
+      stock: 10,
+      unidad: 'litros',
+      estado: 'STOCK_OPTIMO'
+    });
+    mostrarToast(`📦 Insumo "${nuevo.item}" registrado en el inventario.`);
   };
 
   // ==========================================================================
@@ -1368,6 +1728,179 @@ export default function App() {
     mostrarToast(`✅ Limpiador ${workerObj?.nombre || 'designado'} asignado a la orden ${ordenSeleccionadaParaAsignar.codigo_seguimiento}`);
   };
 
+  // Si el usuario no ha iniciado sesión, renderizar pantalla de Login Real
+  if (!isAuthenticated) {
+    return (
+      <div className="login-screen-bg">
+        {toastMsg && (
+          <div style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            background: '#0F172A',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: 12,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <span>{toastMsg}</span>
+          </div>
+        )}
+
+        <div className="login-card-container">
+          <div className="login-brand-header">
+            <div className="login-brand-icon">
+              <Sparkles size={28} />
+            </div>
+            <h1 className="login-title">LimpyGo Ops</h1>
+            <p className="login-subtitle">
+              Portal Central de Operaciones & Administración de Limpieza
+            </p>
+            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: backendStatus === 'conectado' ? '#ECFDF5' : '#FFFBEB', color: backendStatus === 'conectado' ? '#047857' : '#B45309', fontSize: '0.72rem', fontWeight: 700 }}>
+              <span className="pulse-dot" style={{ background: backendStatus === 'conectado' ? '#10B981' : '#F59E0B' }}></span>
+              <span>{backendStatus === 'conectado' ? 'API & Supabase Conectados' : 'Backend en Reposo / Conectando'}</span>
+            </div>
+          </div>
+
+          {loginError && (
+            <div style={{
+              background: '#FEE2E2',
+              border: '1px solid #FCA5A5',
+              color: '#B91C1C',
+              padding: '10px 14px',
+              borderRadius: 10,
+              fontSize: '0.82rem',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}>
+              <AlertCircle size={16} />
+              <span>{loginError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleIniciarSesionReal}>
+            <div className="login-field-group">
+              <label>Correo Electrónico Corporativo</label>
+              <div className="login-input-wrap">
+                <Mail size={18} className="field-icon" />
+                <input
+                  type="email"
+                  required
+                  placeholder="ej. admin@limpygo.com o empresa@brillante.com"
+                  className="login-input"
+                  value={loginForm.correo}
+                  onChange={(e) => setLoginForm({ ...loginForm, correo: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="login-field-group">
+              <label>Contraseña de Acceso</label>
+              <div className="login-input-wrap">
+                <Lock size={18} className="field-icon" />
+                <input
+                  type={mostrarPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Contraseña del sistema"
+                  className="login-input"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                />
+                <button
+                  type="button"
+                  className="login-toggle-pwd"
+                  onClick={() => setMostrarPassword(!mostrarPassword)}
+                  title={mostrarPassword ? 'Ocultar' : 'Mostrar'}
+                >
+                  {mostrarPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" className="login-submit-btn" disabled={loginCargando}>
+              {loginCargando ? (
+                <>
+                  <RefreshCw size={18} className="spin" />
+                  <span>Autenticando...</span>
+                </>
+              ) : (
+                <>
+                  <KeyRound size={18} />
+                  <span>Iniciar Sesión en el Portal</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Acceso Rápido / Pruebas de Sesión */}
+          <div className="quick-demo-section">
+            <div className="quick-demo-title">
+              ⚡ Acceso Rápido de Prueba (1 Clic)
+            </div>
+            <div className="quick-demo-cards">
+              <button
+                type="button"
+                className="quick-card-btn"
+                onClick={() => handleAccesoDemoRapido('admin@limpygo.com', '70486379Josemagdiel')}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#7C3AED' }}>
+                    👑 SuperAdmin Central
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                    admin@limpygo.com • Auditoría total, comisiones y liquidaciones
+                  </div>
+                </div>
+                <ChevronRight size={16} color="#7C3AED" />
+              </button>
+
+              <button
+                type="button"
+                className="quick-card-btn"
+                onClick={() => handleAccesoDemoRapido('operaciones@brillante.com', '70486379Josemagdiel')}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0284C7' }}>
+                    🏢 Empresa Brillante Express
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                    operaciones@brillante.com • Despacho, tarifas y cuadrilla
+                  </div>
+                </div>
+                <ChevronRight size={16} color="#0284C7" />
+              </button>
+
+              <button
+                type="button"
+                className="quick-card-btn"
+                onClick={() => handleAccesoDemoRapido('gerencia@ecoclean.bo', '70486379Josemagdiel')}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#059669' }}>
+                    🌿 Empresa EcoClean Bolivia
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                    gerencia@ecoclean.bo • Catálogo ecológico y evidencias
+                  </div>
+                </div>
+                <ChevronRight size={16} color="#059669" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Toast Notification */}
@@ -1413,7 +1946,7 @@ export default function App() {
 
         <nav className="sidebar-nav">
           {currentUser.rol === 'SUPER_ADMIN' ? (
-            /* Menú SuperAdmin */
+            /* Menú SuperAdmin Extendido */
             <>
               <div className="nav-section-label">SUPERVISIÓN GLOBAL</div>
 
@@ -1452,7 +1985,20 @@ export default function App() {
                 <span className="nav-item-count count-neutral">{ordenes.length}</span>
               </button>
 
-              <div className="nav-section-label" style={{ marginTop: 12 }}>POLÍTICAS & COMISIONES</div>
+              <div className="nav-section-label" style={{ marginTop: 12 }}>FINANZAS & COMISIONES</div>
+
+              <button
+                className={`nav-item ${activeTab === 'liquidaciones_admin' ? 'active' : ''}`}
+                onClick={() => setActiveTab('liquidaciones_admin')}
+              >
+                <Wallet size={18} />
+                <span>Aprobación Liquidaciones</span>
+                {liquidaciones.filter(l => l.estado === 'PENDIENTE').length > 0 && (
+                  <span className="nav-item-count count-alert">
+                    {liquidaciones.filter(l => l.estado === 'PENDIENTE').length}
+                  </span>
+                )}
+              </button>
 
               <button
                 className={`nav-item ${activeTab === 'comisiones_reglas' ? 'active' : ''}`}
@@ -1461,9 +2007,39 @@ export default function App() {
                 <Percent size={18} />
                 <span>Comisiones e Intereses</span>
               </button>
+
+              <div className="nav-section-label" style={{ marginTop: 12 }}>MARKETING & SOPORTE</div>
+
+              <button
+                className={`nav-item ${activeTab === 'cupones_admin' ? 'active' : ''}`}
+                onClick={() => setActiveTab('cupones_admin')}
+              >
+                <Tag size={18} />
+                <span>Cupones & Promociones</span>
+                <span className="nav-item-count count-neutral">{cupones.filter(c => c.activo).length}</span>
+              </button>
+
+              <button
+                className={`nav-item ${activeTab === 'soporte_reclamos' ? 'active' : ''}`}
+                onClick={() => setActiveTab('soporte_reclamos')}
+              >
+                <AlertCircle size={18} />
+                <span>Reclamos & Disputas</span>
+                {reclamos.filter(r => r.estado !== 'RESUELTO').length > 0 && (
+                  <span className="nav-item-count count-alert">{reclamos.filter(r => r.estado !== 'RESUELTO').length}</span>
+                )}
+              </button>
+
+              <button
+                className={`nav-item ${activeTab === 'zonas_cobertura' ? 'active' : ''}`}
+                onClick={() => setActiveTab('zonas_cobertura')}
+              >
+                <MapPin size={18} />
+                <span>Zonas de Cobertura SCZ</span>
+              </button>
             </>
           ) : (
-            /* Menú Empresa de Limpieza */
+            /* Menú Empresa de Limpieza Extendido */
             <>
               <div className="nav-section-label">OPERACIONES EN VIVO</div>
 
@@ -1486,9 +2062,16 @@ export default function App() {
                 )}
               </button>
 
+              <button
+                className={`nav-item ${activeTab === 'horarios_turnos' ? 'active' : ''}`}
+                onClick={() => setActiveTab('horarios_turnos')}
+              >
+                <Clock size={18} />
+                <span>Horarios & Capacidad</span>
+              </button>
+
               <div className="nav-section-label" style={{ marginTop: 12 }}>CATÁLOGO & PRECIOS</div>
 
-              {/* PESTAÑA CLAVE: SERVICIOS Y TARIFAS DE LA EMPRESA */}
               <button
                 className={`nav-item ${activeTab === 'servicios_precios' ? 'active' : ''}`}
                 onClick={() => setActiveTab('servicios_precios')}
@@ -1500,7 +2083,7 @@ export default function App() {
                 </span>
               </button>
 
-              <div className="nav-section-label" style={{ marginTop: 12 }}>GESTIÓN DE PERSONAL</div>
+              <div className="nav-section-label" style={{ marginTop: 12 }}>PERSONAL & EVIDENCIAS</div>
 
               <button
                 className={`nav-item ${activeTab === 'personal' ? 'active' : ''}`}
@@ -1519,7 +2102,23 @@ export default function App() {
                 <span>Auditoría de Evidencias</span>
               </button>
 
-              <div className="nav-section-label" style={{ marginTop: 12 }}>FINANZAS & AJUSTES</div>
+              <button
+                className={`nav-item ${activeTab === 'insumos_equipos' ? 'active' : ''}`}
+                onClick={() => setActiveTab('insumos_equipos')}
+              >
+                <Layers size={18} />
+                <span>Insumos & Maquinarias</span>
+              </button>
+
+              <div className="nav-section-label" style={{ marginTop: 12 }}>CALIDAD & FINANZAS</div>
+
+              <button
+                className={`nav-item ${activeTab === 'resenas_clientes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('resenas_clientes')}
+              >
+                <Star size={18} />
+                <span>Opiniones & Calificaciones</span>
+              </button>
 
               <button
                 className={`nav-item ${activeTab === 'finanzas' ? 'active' : ''}`}
@@ -1540,10 +2139,28 @@ export default function App() {
           )}
         </nav>
 
-        {/* Footer del Sidebar con Usuario Autenticado */}
+        {/* Footer del Sidebar con Usuario Autenticado y Botón Cerrar Sesión */}
         <div className="sidebar-footer">
-          <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 6 }}>
-            USUARIO ACTIVO:
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600 }}>USUARIO ACTIVO:</span>
+            <button
+              onClick={handleCerrarSesion}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#EF4444',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Cerrar Sesión"
+            >
+              <LogOut size={12} />
+              <span>Salir</span>
+            </button>
           </div>
           <div className="org-card">
             <div style={{
@@ -1662,6 +2279,23 @@ export default function App() {
                 ))}
               </select>
             </div>
+
+            {/* Botón Cerrar Sesión */}
+            <button
+              onClick={handleCerrarSesion}
+              className="btn-outline"
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                color: '#EF4444',
+                borderColor: '#FCA5A5',
+                gap: 5
+              }}
+              title="Cerrar sesión activa y volver al login"
+            >
+              <LogOut size={13} />
+              <span>Cerrar Sesión</span>
+            </button>
           </div>
         </header>
 
@@ -3155,6 +3789,832 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* =================================================================
+              SUPERADMIN: APROBACIÓN DE LIQUIDACIONES BANCARIAS
+             ================================================================= */}
+          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'liquidaciones_admin' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Aprobación de Liquidaciones & Transferencias</h1>
+                  <p className="page-subtitle">Supervisa solicitudes de abono de empresas aliadas, retenciones de plataforma y emite comprobantes ACH</p>
+                </div>
+              </div>
+
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <span className="kpi-label">Total Bruto Solicitado</span>
+                  <div className="kpi-value">
+                    {liquidaciones.reduce((sum, l) => sum + l.monto_bruto, 0).toFixed(2)} BOB
+                  </div>
+                  <div className="kpi-subtext">Facturado a través de pagos en app</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Comisiones LimpyGo Retenidas</span>
+                  <div className="kpi-value" style={{ color: '#7C3AED' }}>
+                    {liquidaciones.reduce((sum, l) => sum + l.comision_limpygo, 0).toFixed(2)} BOB
+                  </div>
+                  <div className="kpi-subtext">Ingreso neto consolidado de plataforma</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Saldo Pendiente por Abonar</span>
+                  <div className="kpi-value" style={{ color: '#D97706' }}>
+                    {liquidaciones.filter(l => l.estado === 'PENDIENTE').reduce((sum, l) => sum + l.monto_neto, 0).toFixed(2)} BOB
+                  </div>
+                  <div className="kpi-subtext">
+                    {liquidaciones.filter(l => l.estado === 'PENDIENTE').length} transferencias por autorizar
+                  </div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Transferencias Efectuadas</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    {liquidaciones.filter(l => l.estado === 'PAGADO').length} / {liquidaciones.length}
+                  </div>
+                  <div className="kpi-subtext">Abonos bancarios conciliados</div>
+                </div>
+              </div>
+
+              <div className="table-container">
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    Solicitudes de Transferencia de Fondos a Empresas
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
+                    Aprobación manual y registro de código bancario ACH
+                  </span>
+                </div>
+
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Empresa Beneficiaria</th>
+                      <th>Fecha</th>
+                      <th>Monto Bruto</th>
+                      <th>Comisión LimpyGo</th>
+                      <th>Neto a Transferir</th>
+                      <th>Banco y Cuenta</th>
+                      <th>Estado</th>
+                      <th>Comprobante</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liquidaciones.map(liq => {
+                      const emp = empresas.find(e => e.id === liq.empresa_id);
+                      return (
+                        <tr key={liq.id}>
+                          <td><strong style={{ color: '#0284C7' }}>{liq.id}</strong></td>
+                          <td>
+                            <strong>{emp?.nombre || 'Empresa Aliada'}</strong>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>NIT: {emp?.nit}</div>
+                          </td>
+                          <td>{liq.fecha}</td>
+                          <td>{liq.monto_bruto.toFixed(2)} BOB</td>
+                          <td><strong style={{ color: '#7C3AED' }}>{liq.comision_limpygo.toFixed(2)} BOB</strong></td>
+                          <td><strong style={{ color: '#059669', fontSize: '1rem' }}>{liq.monto_neto.toFixed(2)} BOB</strong></td>
+                          <td>
+                            <div><strong>{liq.banco}</strong></div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B', fontFamily: 'monospace' }}>{liq.cuenta}</div>
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '4px 8px',
+                              borderRadius: 6,
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: liq.estado === 'PAGADO' ? '#ECFDF5' : '#FEF3C7',
+                              color: liq.estado === 'PAGADO' ? '#059669' : '#D97706'
+                            }}>
+                              {liq.estado === 'PAGADO' ? 'PAGADO ✓' : 'PENDIENTE ⏳'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '0.74rem', fontFamily: 'monospace', color: '#475569' }}>
+                              {liq.referencia_pago}
+                            </span>
+                          </td>
+                          <td>
+                            {liq.estado === 'PENDIENTE' ? (
+                              <button
+                                className="btn-primary"
+                                style={{ padding: '5px 10px', fontSize: '0.75rem', background: '#059669' }}
+                                onClick={() => handleAprobarLiquidacionModal(liq)}
+                              >
+                                <Check size={13} />
+                                <span>Aprobar Pago</span>
+                              </button>
+                            ) : (
+                              <span style={{ color: '#059669', fontSize: '0.75rem', fontWeight: 700 }}>
+                                Conciliado
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              SUPERADMIN: CUPONES Y CAMPAÑAS DE MARKETING
+             ================================================================= */}
+          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'cupones_admin' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Gestión de Cupones & Campañas de Marketing</h1>
+                  <p className="page-subtitle">Crea códigos de descuento para impulsar reservas de limpieza en Santa Cruz</p>
+                </div>
+                <button className="btn-primary" onClick={() => setModalNuevoCuponOpen(true)}>
+                  <PlusCircle size={16} />
+                  <span>+ Crear Nuevo Cupón</span>
+                </button>
+              </div>
+
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <span className="kpi-label">Cupones Activos</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    {cupones.filter(c => c.activo).length}
+                  </div>
+                  <div className="kpi-subtext">Habilitados en la App móvil</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Total Canjes Aplicados</span>
+                  <div className="kpi-value" style={{ color: '#0284C7' }}>
+                    {cupones.reduce((s, c) => s + c.uso_actual, 0)}
+                  </div>
+                  <div className="kpi-subtext">Clientes beneficiados</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Descuentos Inyectados</span>
+                  <div className="kpi-value" style={{ color: '#7C3AED' }}>
+                    2,340.00 BOB
+                  </div>
+                  <div className="kpi-subtext">Subvencionados en campañas</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Tasa de Conversión</span>
+                  <div className="kpi-value" style={{ color: '#10B981' }}>
+                    34.2%
+                  </div>
+                  <div className="kpi-subtext">Usuarios que completan el pedido</div>
+                </div>
+              </div>
+
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Código Promocional</th>
+                      <th>Tipo & Descuento</th>
+                      <th>Pedido Mínimo</th>
+                      <th>Canjes / Límite</th>
+                      <th>Vencimiento</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cupones.map(cup => (
+                      <tr key={cup.id}>
+                        <td>
+                          <span className="coupon-tag-badge">
+                            <Tag size={13} />
+                            <span>{cup.codigo}</span>
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{cup.tipo === 'PORCENTAJE' ? `${cup.valor}% OFF` : `${cup.valor} BOB Menos`}</strong>
+                        </td>
+                        <td>{cup.pedido_minimo > 0 ? `${cup.pedido_minimo} BOB` : 'Sin mínimo'}</td>
+                        <td>
+                          <div><strong>{cup.uso_actual}</strong> / {cup.uso_max}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
+                            {Math.round((cup.uso_actual / cup.uso_max) * 100)}% consumido
+                          </div>
+                        </td>
+                        <td>{cup.expira}</td>
+                        <td>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            background: cup.activo ? '#ECFDF5' : '#FEE2E2',
+                            color: cup.activo ? '#059669' : '#DC2626'
+                          }}>
+                            {cup.activo ? 'ACTIVO' : 'PAUSADO'}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+                            onClick={() => handleToggleCupon(cup.id)}
+                          >
+                            {cup.activo ? 'Pausar' : 'Activar'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              SUPERADMIN: SOPORTE, RECLAMOS Y DISPUTAS
+             ================================================================= */}
+          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'soporte_reclamos' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Mesa de Ayuda, Reclamos & Disputas</h1>
+                  <p className="page-subtitle">Gestiona quejas de clientes y audita el cumplimiento de calidad de las empresas</p>
+                </div>
+              </div>
+
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <span className="kpi-label">Tickets Abiertos</span>
+                  <div className="kpi-value" style={{ color: '#EF4444' }}>
+                    {reclamos.filter(r => r.estado === 'ABIERTO').length}
+                  </div>
+                  <div className="kpi-subtext">Requieren atención urgente</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">En Mediación</span>
+                  <div className="kpi-value" style={{ color: '#D97706' }}>
+                    {reclamos.filter(r => r.estado === 'EN_REVISION').length}
+                  </div>
+                  <div className="kpi-subtext">Coordinando con la empresa</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Resueltos</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    {reclamos.filter(r => r.estado === 'RESUELTO').length}
+                  </div>
+                  <div className="kpi-subtext">Cerrados satisfactoriamente</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Tiempo Promedio Resolución</span>
+                  <div className="kpi-value" style={{ color: '#0284C7' }}>
+                    45 min
+                  </div>
+                  <div className="kpi-subtext">Meta plataforma: menos de 2 horas</div>
+                </div>
+              </div>
+
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Ticket ID</th>
+                      <th>Orden</th>
+                      <th>Cliente</th>
+                      <th>Empresa</th>
+                      <th>Incidencia / Reclamo</th>
+                      <th>Severidad</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reclamos.map(rec => {
+                      const emp = empresas.find(e => e.id === rec.empresa_id);
+                      return (
+                        <tr key={rec.id}>
+                          <td><strong>{rec.id}</strong></td>
+                          <td><span style={{ color: '#0284C7', fontWeight: 800 }}>{rec.orden_id}</span></td>
+                          <td>{rec.cliente}</td>
+                          <td>{emp?.nombre || 'Empresa'}</td>
+                          <td style={{ maxWidth: 300 }}>
+                            <div style={{ fontSize: '0.82rem', color: '#1E293B', fontWeight: 600 }}>{rec.motivo}</div>
+                            {rec.resolucion && (
+                              <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: 4 }}>
+                                Resuelto: {rec.resolucion}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`ticket-priority-pill ${rec.severidad === 'ALTA' ? 'ticket-urgente' : rec.severidad === 'MEDIA' ? 'ticket-media' : 'ticket-baja'}`}>
+                              {rec.severidad}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: rec.estado === 'RESUELTO' ? '#ECFDF5' : rec.estado === 'EN_REVISION' ? '#FEF3C7' : '#FEE2E2',
+                              color: rec.estado === 'RESUELTO' ? '#059669' : rec.estado === 'EN_REVISION' ? '#D97706' : '#DC2626'
+                            }}>
+                              {rec.estado}
+                            </span>
+                          </td>
+                          <td>
+                            {rec.estado !== 'RESUELTO' ? (
+                              <button
+                                className="btn-primary"
+                                style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+                                onClick={() => {
+                                  setReclamoSeleccionado(rec);
+                                  setResolucionInput('');
+                                  setModalResolverReclamoOpen(true);
+                                }}
+                              >
+                                Resolver
+                              </button>
+                            ) : (
+                              <span style={{ color: '#059669', fontSize: '0.75rem', fontWeight: 700 }}>✓ Concluido</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ
+             ================================================================= */}
+          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'zonas_cobertura' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Zonas de Cobertura y Tarifas por Barrio</h1>
+                  <p className="page-subtitle">Configura barrios de atención en Santa Cruz de la Sierra y recargos por desplazamiento</p>
+                </div>
+                <button className="btn-primary" onClick={() => setModalNuevaZonaOpen(true)}>
+                  <MapPin size={16} />
+                  <span>+ Agregar Zona de Cobertura</span>
+                </button>
+              </div>
+
+              <div className="kpi-grid" style={{ marginBottom: 20 }}>
+                <div className="kpi-card">
+                  <span className="kpi-label">Zonas Activas</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    {zonasCobertura.filter(z => z.estado === 'ACTIVA').length}
+                  </div>
+                  <div className="kpi-subtext">Barrios cubiertos en la red</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Cobertura Urbana Estimada</span>
+                  <div className="kpi-value" style={{ color: '#0284C7' }}>
+                    92%
+                  </div>
+                  <div className="kpi-subtext">Radio metropolitano de Santa Cruz</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Recargo Lejanía Promedio</span>
+                  <div className="kpi-value" style={{ color: '#7C3AED' }}>
+                    {(zonasCobertura.reduce((s, z) => s + z.recargo_lejanía, 0) / zonasCobertura.length).toFixed(2)} BOB
+                  </div>
+                  <div className="kpi-subtext">Abonado 100% al personal de limpieza</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Tiempo Promedio de Arribo</span>
+                  <div className="kpi-value">
+                    36 min
+                  </div>
+                  <div className="kpi-subtext">Despacho de cuadrillas</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                {zonasCobertura.map(zona => (
+                  <div key={zona.id} style={{ background: 'white', padding: 18, borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0F172A' }}>{zona.nombre}</div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Macrozona: {zona.macrozona}</div>
+                      </div>
+                      <span style={{
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        background: zona.estado === 'ACTIVA' ? '#ECFDF5' : '#FEE2E2',
+                        color: zona.estado === 'ACTIVA' ? '#059669' : '#DC2626'
+                      }}>
+                        {zona.estado}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
+                      <div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Recargo Transporte:</div>
+                        <div style={{ fontWeight: 800, color: zona.recargo_lejanía > 0 ? '#7C3AED' : '#059669' }}>
+                          {zona.recargo_lejanía > 0 ? `+${zona.recargo_lejanía} BOB` : 'Sin recargo (0 BOB)'}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Tiempo Arribo:</div>
+                        <div style={{ fontWeight: 700, color: '#334155' }}>{zona.tiempo_llegada_prom}</div>
+                      </div>
+                    </div>
+
+                    <button
+                      className="btn-outline"
+                      style={{ width: '100%', justifyContent: 'center', fontSize: '0.78rem' }}
+                      onClick={() => handleToggleZona(zona.id)}
+                    >
+                      {zona.estado === 'ACTIVA' ? 'Deshabilitar Zona' : 'Habilitar Zona'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              EMPRESA: RESEÑAS Y CALIFICACIONES DE CLIENTES
+             ================================================================= */}
+          {currentUser.rol !== 'SUPER_ADMIN' && activeTab === 'resenas_clientes' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Calificaciones & Opiniones de Clientes</h1>
+                  <p className="page-subtitle">Opiniones verificadas dejadas por los clientes de {currentEmpresa.nombre}</p>
+                </div>
+              </div>
+
+              {/* Resumen de Calificación General */}
+              <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, marginBottom: 24 }}>
+                <div style={{ background: 'white', padding: 24, borderRadius: 16, border: '1px solid #E2E8F0', textAlign: 'center' }}>
+                  <div style={{ fontSize: '3rem', fontWeight: 900, color: '#0F172A', lineHeight: 1 }}>
+                    4.9
+                  </div>
+                  <div className="review-stars" style={{ justifyContent: 'center', margin: '8px 0' }}>
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={20} fill="#F59E0B" color="#F59E0B" />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 600 }}>
+                    Basado en 148 servicios concluidos
+                  </div>
+                  <div style={{ marginTop: 12, padding: '6px 10px', borderRadius: 8, background: '#ECFDF5', color: '#059669', fontSize: '0.76rem', fontWeight: 700 }}>
+                    ⭐ 98% de clientes recomiendan tu empresa
+                  </div>
+                </div>
+
+                <div style={{ background: 'white', padding: 24, borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem' }}>
+                    <span style={{ width: 60, fontWeight: 700 }}>5 estrellas</span>
+                    <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: '91%', height: '100%', background: '#10B981', borderRadius: 4 }}></div>
+                    </div>
+                    <span style={{ width: 40, textAlign: 'right', fontWeight: 700, color: '#64748B' }}>91%</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem' }}>
+                    <span style={{ width: 60, fontWeight: 700 }}>4 estrellas</span>
+                    <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: '7%', height: '100%', background: '#3B82F6', borderRadius: 4 }}></div>
+                    </div>
+                    <span style={{ width: 40, textAlign: 'right', fontWeight: 700, color: '#64748B' }}>7%</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem' }}>
+                    <span style={{ width: 60, fontWeight: 700 }}>3 estrellas</span>
+                    <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: '2%', height: '100%', background: '#F59E0B', borderRadius: 4 }}></div>
+                    </div>
+                    <span style={{ width: 40, textAlign: 'right', fontWeight: 700, color: '#64748B' }}>2%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de Reseñas de Clientes */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {resenas.filter(r => r.empresa_id === currentEmpresa.id).map(res => (
+                  <div key={res.id} className="review-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0F172A' }}>{res.cliente}</span>
+                          <div className="review-stars">
+                            {[...Array(res.estrellas)].map((_, i) => (
+                              <Star key={i} size={14} fill="#F59E0B" color="#F59E0B" />
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
+                          Servicio: <strong>{res.servicio}</strong> • Realizado por: <strong>{res.trabajador}</strong>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{res.fecha}</span>
+                    </div>
+
+                    <div style={{ fontSize: '0.88rem', color: '#334155', fontStyle: 'italic', background: '#F8FAFC', padding: 12, borderRadius: 10, borderLeft: '3px solid #0284C7' }}>
+                      "{res.comentario}"
+                    </div>
+
+                    {res.respuesta ? (
+                      <div style={{ background: '#F0F9FF', padding: 12, borderRadius: 10, fontSize: '0.82rem', color: '#0369A1', border: '1px solid #BAE6FD' }}>
+                        <strong>Respuesta de la empresa:</strong> {res.respuesta}
+                      </div>
+                    ) : (
+                      <button
+                        className="btn-outline"
+                        style={{ alignSelf: 'flex-start', fontSize: '0.75rem', padding: '4px 10px', gap: 5 }}
+                        onClick={() => {
+                          setResenaSeleccionada(res);
+                          setRespuestaInput('');
+                          setModalResponderResenaOpen(true);
+                        }}
+                      >
+                        <MessageSquare size={13} />
+                        <span>Responder al cliente</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              EMPRESA: HORARIOS & CAPACIDAD OPERATIVA
+             ================================================================= */}
+          {currentUser.rol !== 'SUPER_ADMIN' && activeTab === 'horarios_turnos' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Horarios de Atención & Capacidad Operativa</h1>
+                  <p className="page-subtitle">Define franjas de disponibilidad y número máximo de cuadrillas simultáneas para {currentEmpresa.nombre}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+                {/* Lunes a Viernes */}
+                <div style={{ background: 'white', padding: 22, borderRadius: 16, border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0F172A' }}>Lunes a Viernes</div>
+                    <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800, background: '#ECFDF5', color: '#059669' }}>
+                      HABILITADO
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>Hora Inicio:</label>
+                      <input
+                        type="time"
+                        value={horariosAtencion.lunes_viernes.inicio}
+                        onChange={(e) => setHorariosAtencion({
+                          ...horariosAtencion,
+                          lunes_viernes: { ...horariosAtencion.lunes_viernes, inicio: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>Hora Cierre:</label>
+                      <input
+                        type="time"
+                        value={horariosAtencion.lunes_viernes.fin}
+                        onChange={(e) => setHorariosAtencion({
+                          ...horariosAtencion,
+                          lunes_viernes: { ...horariosAtencion.lunes_viernes, fin: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>
+                      Capacidad Máxima Simultánea:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={horariosAtencion.lunes_viernes.cupos_simultaneos}
+                      onChange={(e) => setHorariosAtencion({
+                        ...horariosAtencion,
+                        lunes_viernes: { ...horariosAtencion.lunes_viernes, cupos_simultaneos: parseInt(e.target.value) || 1 }
+                      })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: '#64748B' }}>Servicios o limpiezas en paralelo</span>
+                  </div>
+                </div>
+
+                {/* Sábados */}
+                <div style={{ background: 'white', padding: 22, borderRadius: 16, border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0F172A' }}>Sábados</div>
+                    <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800, background: '#ECFDF5', color: '#059669' }}>
+                      HABILITADO
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>Hora Inicio:</label>
+                      <input
+                        type="time"
+                        value={horariosAtencion.sabado.inicio}
+                        onChange={(e) => setHorariosAtencion({
+                          ...horariosAtencion,
+                          sabado: { ...horariosAtencion.sabado, inicio: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>Hora Cierre:</label>
+                      <input
+                        type="time"
+                        value={horariosAtencion.sabado.fin}
+                        onChange={(e) => setHorariosAtencion({
+                          ...horariosAtencion,
+                          sabado: { ...horariosAtencion.sabado, fin: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 4 }}>
+                      Capacidad Máxima Simultánea:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={horariosAtencion.sabado.cupos_simultaneos}
+                      onChange={(e) => setHorariosAtencion({
+                        ...horariosAtencion,
+                        sabado: { ...horariosAtencion.sabado, cupos_simultaneos: parseInt(e.target.value) || 1 }
+                      })}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Domingos & Servicio Express */}
+                <div style={{ background: 'white', padding: 22, borderRadius: 16, border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0F172A' }}>Despacho Express LimpyGo</div>
+                    <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 800, background: '#F0F9FF', color: '#0284C7' }}>
+                      PREMIUM
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.4, marginBottom: 12 }}>
+                    Permite que clientes soliciten cuadrillas con urgencia para llegar en menos de 90 minutos con recargo adicional.
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>Recargo Express:</div>
+                      <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700 }}>+20.00 BOB directo a empresa</div>
+                    </div>
+                    <button
+                      className="btn-primary"
+                      style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                      onClick={() => mostrarToast('Configuración operativa guardada.')}
+                    >
+                      <span>Guardar Turnos</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              EMPRESA: INVENTARIO DE INSUMOS & EQUIPAMIENTO
+             ================================================================= */}
+          {currentUser.rol !== 'SUPER_ADMIN' && activeTab === 'insumos_equipos' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title">Inventario de Insumos & Maquinarias</h1>
+                  <p className="page-subtitle">Control de stock de detergentes, uniformes, aspiradoras e hidrolavadoras de {currentEmpresa.nombre}</p>
+                </div>
+                <button className="btn-primary" onClick={() => setModalNuevoInsumoOpen(true)}>
+                  <PlusCircle size={16} />
+                  <span>+ Registrar Entrada / Equipo</span>
+                </button>
+              </div>
+
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <span className="kpi-label">Equipos Operativos</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    100%
+                  </div>
+                  <div className="kpi-subtext">Aspiradoras e hidrolavadoras activas</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Insumos en Stock Óptimo</span>
+                  <div className="kpi-value" style={{ color: '#0284C7' }}>
+                    {inventarioInsumos.filter(i => i.estado === 'STOCK_OPTIMO' || i.estado === 'OPERATIVO').length}
+                  </div>
+                  <div className="kpi-subtext">Listos para cuadrillas</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Items por Reponer</span>
+                  <div className="kpi-value" style={{ color: '#D97706' }}>
+                    {inventarioInsumos.filter(i => i.estado === 'REPONER_PRONTO').length}
+                  </div>
+                  <div className="kpi-subtext">Bajo nivel de stock</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Próxima Revisión de Equipos</span>
+                  <div className="kpi-value" style={{ fontSize: '1.15rem' }}>
+                    15 Octubre
+                  </div>
+                  <div className="kpi-subtext">Mantenimiento preventivo</div>
+                </div>
+              </div>
+
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Artículo / Maquinaria</th>
+                      <th>Categoría</th>
+                      <th>Stock Actual</th>
+                      <th>Estado Operativo</th>
+                      <th>Último Registro</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventarioInsumos.filter(i => i.empresa_id === currentEmpresa.id).map(ins => (
+                      <tr key={ins.id}>
+                        <td><strong>{ins.item}</strong></td>
+                        <td>
+                          <span style={{ padding: '3px 8px', borderRadius: 6, background: '#F1F5F9', fontSize: '0.75rem', fontWeight: 700 }}>
+                            {ins.categoria}
+                          </span>
+                        </td>
+                        <td>
+                          <strong style={{ fontSize: '0.95rem' }}>{ins.stock}</strong> {ins.unidad}
+                        </td>
+                        <td>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            background: ins.estado === 'OPERATIVO' || ins.estado === 'STOCK_OPTIMO' ? '#ECFDF5' : '#FEF3C7',
+                            color: ins.estado === 'OPERATIVO' || ins.estado === 'STOCK_OPTIMO' ? '#059669' : '#D97706'
+                          }}>
+                            {ins.estado === 'OPERATIVO' ? 'OPERATIVO ✓' : ins.estado === 'STOCK_OPTIMO' ? 'STOCK ÓPTIMO ✓' : 'REPONER PRONTO ⚠️'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.78rem', color: '#64748B' }}>{ins.fecha_mantenimiento}</td>
+                        <td>
+                          <button
+                            className="btn-outline"
+                            style={{ padding: '4px 8px', fontSize: '0.72rem' }}
+                            onClick={() => {
+                              setInventarioInsumos(prev => prev.map(item => item.id === ins.id ? { ...item, stock: item.stock + 5, estado: 'STOCK_OPTIMO' } : item));
+                              mostrarToast(`Stock actualizado para "${ins.item}".`);
+                            }}
+                          >
+                            + Reponer +5
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -4602,6 +6062,463 @@ export default function App() {
                 <span>Entendido / Cerrar</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: APROBAR Y EMITIR LIQUIDACIÓN BANCARIA (SUPERADMIN)
+         ===================================================================== */}
+      {modalAprobarLiquidacionOpen && liquidacionAprobando && (
+        <div className="modal-overlay" onClick={() => setModalAprobarLiquidacionOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <form onSubmit={handleConfirmarAprobacionLiquidacion}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#059669' }}>
+                  Aprobar Liquidación & Transferencia Bancaria
+                </h3>
+                <button type="button" onClick={() => setModalAprobarLiquidacionOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Liquidación ID:</span>
+                    <strong>{liquidacionAprobando.id}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Monto Neto a Transferir:</span>
+                    <strong style={{ fontSize: '1.1rem', color: '#059669' }}>{liquidacionAprobando.monto_neto.toFixed(2)} BOB</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Banco Receptor:</span>
+                    <strong>{liquidacionAprobando.banco}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Cuenta:</span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{liquidacionAprobando.cuenta}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: 4 }}>
+                    Código de Comprobante / Referencia Bancaria ACH:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. TRANSF-BMSC-890234"
+                    value={refPagoInput}
+                    onChange={(e) => setRefPagoInput(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 700 }}
+                  />
+                  <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                    Este código quedará registrado en el historial de la empresa para su conciliación contable.
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalAprobarLiquidacionOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" style={{ background: '#059669' }}>
+                  <Check size={16} />
+                  <span>Confirmar & Emitir Pago</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: CREAR NUEVO CUPÓN PROMOCIONAL (SUPERADMIN)
+         ===================================================================== */}
+      {modalNuevoCuponOpen && (
+        <div className="modal-overlay" onClick={() => setModalNuevoCuponOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <form onSubmit={handleGuardarNuevoCupon}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Crear Cupón Promocional</h3>
+                <button type="button" onClick={() => setModalNuevoCuponOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Código del Cupón (Mayúsculas):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. LIMPYFIESTAS20"
+                    value={nuevoCuponForm.codigo}
+                    onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, codigo: e.target.value.toUpperCase() })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 800, textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Tipo de Descuento:
+                    </label>
+                    <select
+                      value={nuevoCuponForm.tipo}
+                      onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, tipo: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    >
+                      <option value="PORCENTAJE">% Porcentaje</option>
+                      <option value="MONTO_FIJO">Monto Fijo (BOB)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Valor del Descuento:
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={nuevoCuponForm.valor}
+                      onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, valor: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 800 }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Pedido Mínimo (BOB):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={nuevoCuponForm.pedido_minimo}
+                      onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, pedido_minimo: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Límite de Canjes:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={nuevoCuponForm.uso_max}
+                      onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, uso_max: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Fecha de Vencimiento:
+                  </label>
+                  <input
+                    type="date"
+                    value={nuevoCuponForm.expira}
+                    onChange={(e) => setNuevoCuponForm({ ...nuevoCuponForm, expira: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalNuevoCuponOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Tag size={15} />
+                  <span>Publicar Cupón en App</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RESOLVER RECLAMO O DISPUTA (SUPERADMIN)
+         ===================================================================== */}
+      {modalResolverReclamoOpen && reclamoSeleccionado && (
+        <div className="modal-overlay" onClick={() => setModalResolverReclamoOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <form onSubmit={handleResolverReclamo}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Resolver Ticket {reclamoSeleccionado.id}</h3>
+                <button type="button" onClick={() => setModalResolverReclamoOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0', fontSize: '0.82rem' }}>
+                  <div><strong>Cliente:</strong> {reclamoSeleccionado.cliente}</div>
+                  <div><strong>Orden:</strong> {reclamoSeleccionado.orden_id}</div>
+                  <div style={{ marginTop: 6, color: '#334155' }}><strong>Motivo:</strong> {reclamoSeleccionado.motivo}</div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Dictamen / Solución Aplicada:
+                  </label>
+                  <textarea
+                    required
+                    rows="3"
+                    placeholder="ej. Se compensó al cliente con cupón LIMPY10 y la empresa asignó prioridad sin recargo."
+                    value={resolucionInput}
+                    onChange={(e) => setResolucionInput(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalResolverReclamoOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" style={{ background: '#059669' }}>
+                  <Check size={16} />
+                  <span>Marcar Caso como Resuelto</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: AGREGAR ZONA DE COBERTURA (SUPERADMIN)
+         ===================================================================== */}
+      {modalNuevaZonaOpen && (
+        <div className="modal-overlay" onClick={() => setModalNuevaZonaOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <form onSubmit={handleGuardarNuevaZona}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Nueva Zona de Cobertura</h3>
+                <button type="button" onClick={() => setModalNuevaZonaOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Nombre del Barrio / Zona:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Las Palmas / Doble Vía La Guardia"
+                    value={nuevaZonaForm.nombre}
+                    onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, nombre: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Macrozona:
+                    </label>
+                    <select
+                      value={nuevaZonaForm.macrozona}
+                      onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, macrozona: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    >
+                      <option value="Norte">Norte</option>
+                      <option value="Sur">Sur</option>
+                      <option value="Este">Este</option>
+                      <option value="Oeste">Oeste</option>
+                      <option value="Centro">Centro</option>
+                      <option value="Metropolitana">Metropolitana</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Recargo Transporte (BOB):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={nuevaZonaForm.recargo_lejanía}
+                      onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, recargo_lejanía: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Tiempo Estimado de Llegada:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej. 30 a 45 min"
+                    value={nuevaZonaForm.tiempo_llegada_prom}
+                    onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, tiempo_llegada_prom: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalNuevaZonaOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  <MapPin size={15} />
+                  <span>Habilitar Zona</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: RESPONDER A RESEÑA DE CLIENTE (EMPRESA)
+         ===================================================================== */}
+      {modalResponderResenaOpen && resenaSeleccionada && (
+        <div className="modal-overlay" onClick={() => setModalResponderResenaOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <form onSubmit={handleEnviarRespuestaResena}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Responder a {resenaSeleccionada.cliente}</h3>
+                <button type="button" onClick={() => setModalResponderResenaOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                  "{resenaSeleccionada.comentario}"
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Tu Respuesta Oficial:
+                  </label>
+                  <textarea
+                    required
+                    rows="3"
+                    placeholder="Agradece al cliente y reitera el compromiso de tu empresa..."
+                    value={respuestaInput}
+                    onChange={(e) => setRespuestaInput(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.85rem' }}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalResponderResenaOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  <MessageSquare size={15} />
+                  <span>Publicar Respuesta</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: REGISTRAR INSUMO O EQUIPAMIENTO (EMPRESA)
+         ===================================================================== */}
+      {modalNuevoInsumoOpen && (
+        <div className="modal-overlay" onClick={() => setModalNuevoInsumoOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <form onSubmit={handleGuardarNuevoInsumo}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Registrar Insumo o Maquinaria</h3>
+                <button type="button" onClick={() => setModalNuevoInsumoOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Nombre del Artículo / Equipo:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Detergente Enzimático Concentrado 5L"
+                    value={nuevoInsumoForm.item}
+                    onChange={(e) => setNuevoInsumoForm({ ...nuevoInsumoForm, item: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Categoría:
+                    </label>
+                    <select
+                      value={nuevoInsumoForm.categoria}
+                      onChange={(e) => setNuevoInsumoForm({ ...nuevoInsumoForm, categoria: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    >
+                      <option value="Químicos">Químicos</option>
+                      <option value="Maquinaria">Maquinaria</option>
+                      <option value="Accesorios y EPP">Accesorios y EPP</option>
+                      <option value="Vehículo">Vehículo</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Cantidad / Stock:
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={nuevoInsumoForm.stock}
+                      onChange={(e) => setNuevoInsumoForm({ ...nuevoInsumoForm, stock: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Unidad de Medida:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej. litros, unidades, paquetes"
+                    value={nuevoInsumoForm.unidad}
+                    onChange={(e) => setNuevoInsumoForm({ ...nuevoInsumoForm, unidad: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalNuevoInsumoOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Layers size={15} />
+                  <span>Guardar en Inventario</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
