@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import L from 'leaflet';
 import api, { API_BASE_URL } from './services/api';
 import {
   LayoutDashboard,
@@ -54,7 +55,11 @@ import {
   Calendar,
   Ticket,
   FileText,
-  Navigation
+  Navigation,
+  Crosshair,
+  Radio,
+  Globe,
+  LocateFixed
 } from 'lucide-react';
 
 // ============================================================================
@@ -527,6 +532,188 @@ const ORDENES_INICIALES = [
   }
 ];
 
+// ============================================================================
+// COMPONENTE VISOR SATELITAL DE COBERTURA Y GEOCÁLCULO GPS (SANTA CRUZ)
+// ============================================================================
+function VisorSatelitalZonas({ zonas, puntoPrueba, onSelectPunto, onSelectZona, zonaSeleccionada, capaTipo }) {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const labelsLayerRef = useRef(null);
+  const circlesGroupRef = useRef(null);
+  const testMarkerRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const map = L.map(mapContainerRef.current, {
+      center: [-17.7833, -63.1821], // Santa Cruz de la Sierra
+      zoom: 12,
+      zoomControl: false,
+      attributionControl: false
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const circlesGroup = L.featureGroup().addTo(map);
+    circlesGroupRef.current = circlesGroup;
+
+    map.on('click', (e) => {
+      onSelectPunto({
+        lat: Number(e.latlng.lat.toFixed(5)),
+        lng: Number(e.latlng.lng.toFixed(5)),
+        etiqueta: 'Punto Satelital Marcado'
+      });
+    });
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    if (labelsLayerRef.current) {
+      map.removeLayer(labelsLayerRef.current);
+      labelsLayerRef.current = null;
+    }
+
+    if (capaTipo === 'satelite') {
+      tileLayerRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 19 }
+      ).addTo(map);
+
+      labelsLayerRef.current = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+        { maxZoom: 19, subdomains: 'abcd' }
+      ).addTo(map);
+    } else {
+      tileLayerRef.current = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        { maxZoom: 19, subdomains: 'abcd' }
+      ).addTo(map);
+    }
+  }, [capaTipo]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const group = circlesGroupRef.current;
+    if (!map || !group) return;
+
+    group.clearLayers();
+
+    zonas.forEach(z => {
+      const isSelected = zonaSeleccionada?.id === z.id;
+      const isActiva = z.estado === 'ACTIVA';
+
+      const circle = L.circle([z.lat, z.lng], {
+        radius: (z.radio_km || 3.0) * 1000,
+        color: z.color_satelital || '#0284C7',
+        fillColor: z.color_satelital || '#0284C7',
+        fillOpacity: isSelected ? 0.38 : (isActiva ? 0.20 : 0.08),
+        weight: isSelected ? 3.5 : 2,
+        dashArray: isActiva ? null : '6, 6'
+      }).addTo(group);
+
+      circle.bindTooltip(
+        `<div style="font-family: inherit; font-size: 11px;">
+          <strong style="color: ${z.color_satelital}; font-size: 12px;">${z.nombre}</strong><br/>
+          Macrozona: <b>${z.macrozona}</b><br/>
+          Radio Satelital: <b>${z.radio_km} km</b><br/>
+          Recargo Transporte: <b>${z.recargo_lejanía > 0 ? `+${z.recargo_lejanía} BOB` : '0 BOB'}</b><br/>
+          Tiempo arribo: <b>${z.tiempo_llegada_prom}</b>
+        </div>`,
+        { sticky: true }
+      );
+
+      circle.on('click', () => {
+        onSelectZona(z);
+      });
+
+      const labelHtml = `
+        <div style="background: rgba(15, 23, 42, 0.92); border: 2px solid ${z.color_satelital || '#0284C7'}; color: white; padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 5px; cursor: pointer;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: ${z.color_satelital || '#0284C7'};"></span>
+          <span>${z.nombre.split('/')[0].trim()}</span>
+          <span style="background: rgba(255,255,255,0.22); padding: 1px 4px; border-radius: 4px; font-size: 9px;">${z.radio_km}km</span>
+        </div>
+      `;
+
+      const marker = L.marker([z.lat, z.lng], {
+        icon: L.divIcon({
+          className: '',
+          html: labelHtml,
+          iconSize: [110, 24],
+          iconAnchor: [55, 12]
+        })
+      }).addTo(group);
+
+      marker.on('click', () => {
+        onSelectZona(z);
+      });
+    });
+  }, [zonas, zonaSeleccionada]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (testMarkerRef.current) {
+      map.removeLayer(testMarkerRef.current);
+      testMarkerRef.current = null;
+    }
+
+    if (puntoPrueba && puntoPrueba.lat && puntoPrueba.lng) {
+      const pinHtml = `
+        <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: rgba(239, 68, 68, 0.4); border: 2px solid #EF4444; animation: pulseRadar 1.6s infinite ease-out;"></div>
+          <div style="width: 14px; height: 14px; border-radius: 50%; background: #EF4444; border: 2.5px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.6); z-index: 2;"></div>
+        </div>
+      `;
+
+      testMarkerRef.current = L.marker([puntoPrueba.lat, puntoPrueba.lng], {
+        icon: L.divIcon({
+          className: '',
+          html: pinHtml,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        }),
+        zIndexOffset: 1000
+      }).addTo(map);
+
+      testMarkerRef.current.bindTooltip(
+        `<div style="font-size: 11px;">
+          <b>${puntoPrueba.etiqueta || 'Punto Satelital'}</b><br/>
+          Lat: ${puntoPrueba.lat}, Lng: ${puntoPrueba.lng}
+        </div>`,
+        { permanent: false, direction: 'top' }
+      );
+    }
+  }, [puntoPrueba]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !zonaSeleccionada) return;
+    map.flyTo([zonaSeleccionada.lat, zonaSeleccionada.lng], 13, { duration: 1.2 });
+  }, [zonaSeleccionada]);
+
+  return (
+    <div className="mapa-satelital-wrapper">
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+    </div>
+  );
+}
+
 export default function App() {
   // Estado de usuario y sesión activa
   const [currentUser, setCurrentUser] = useState(USUARIOS_INICIALES[1]); // Inicia como Empresa (Lic. Mariana Paz)
@@ -713,19 +900,100 @@ export default function App() {
   const [reclamoSeleccionado, setReclamoSeleccionado] = useState(null);
   const [resolucionInput, setResolucionInput] = useState('');
 
-  // SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ
+  // SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ (CON GEOCÁLCULO SATELITAL Y RADIOS GPS)
   const [zonasCobertura, setZonasCobertura] = useState([
-    { id: 'zn-1', nombre: 'Equipetrol / Barrio Sirari', macrozona: 'Norte', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '25 min' },
-    { id: 'zn-2', nombre: 'Urbarí / Las Palmas', macrozona: 'Oeste', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '30 min' },
-    { id: 'zn-3', nombre: 'Centro Histórico / 1er Anillo', macrozona: 'Centro', recargo_lejanía: 0, estado: 'ACTIVA', tiempo_llegada_prom: '20 min' },
-    { id: 'zn-4', nombre: 'Hamacas / Av. Beni (3er al 5to Anillo)', macrozona: 'Noreste', recargo_lejanía: 10, estado: 'ACTIVA', tiempo_llegada_prom: '40 min' },
-    { id: 'zn-5', nombre: 'Plan 3000 / Villa 1ro de Mayo', macrozona: 'Sur - Este', recargo_lejanía: 15, estado: 'ACTIVA', tiempo_llegada_prom: '55 min' },
-    { id: 'zn-6', nombre: 'Warnes / Satélite Norte (Zona Extendida)', macrozona: 'Norte Metropolitano', recargo_lejanía: 30, estado: 'ACTIVA', tiempo_llegada_prom: '75 min' }
+    {
+      id: 'zn-1',
+      nombre: 'Equipetrol / Barrio Sirari',
+      macrozona: 'Norte',
+      lat: -17.7685,
+      lng: -63.1821,
+      radio_km: 2.8,
+      recargo_lejanía: 0,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '25 min',
+      color_satelital: '#0284C7'
+    },
+    {
+      id: 'zn-2',
+      nombre: 'Urbarí / Las Palmas',
+      macrozona: 'Oeste',
+      lat: -17.7950,
+      lng: -63.2050,
+      radio_km: 3.2,
+      recargo_lejanía: 0,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '30 min',
+      color_satelital: '#10B981'
+    },
+    {
+      id: 'zn-3',
+      nombre: 'Centro Histórico / 1er Anillo',
+      macrozona: 'Centro',
+      lat: -17.7833,
+      lng: -63.1821,
+      radio_km: 2.5,
+      recargo_lejanía: 0,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '20 min',
+      color_satelital: '#06B6D4'
+    },
+    {
+      id: 'zn-4',
+      nombre: 'Hamacas / Av. Beni (3er al 5to Anillo)',
+      macrozona: 'Noreste',
+      lat: -17.7520,
+      lng: -63.1650,
+      radio_km: 3.8,
+      recargo_lejanía: 10,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '40 min',
+      color_satelital: '#8B5CF6'
+    },
+    {
+      id: 'zn-5',
+      nombre: 'Plan 3000 / Villa 1ro de Mayo',
+      macrozona: 'Sur - Este',
+      lat: -17.8180,
+      lng: -63.1350,
+      radio_km: 5.2,
+      recargo_lejanía: 15,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '55 min',
+      color_satelital: '#F59E0B'
+    },
+    {
+      id: 'zn-6',
+      nombre: 'Warnes / Satélite Norte (Zona Extendida)',
+      macrozona: 'Norte Metropolitano',
+      lat: -17.5100,
+      lng: -63.1600,
+      radio_km: 8.5,
+      recargo_lejanía: 30,
+      estado: 'ACTIVA',
+      tiempo_llegada_prom: '75 min',
+      color_satelital: '#EF4444'
+    }
   ]);
   const [modalNuevaZonaOpen, setModalNuevaZonaOpen] = useState(false);
+  const [modalEditarZonaOpen, setModalEditarZonaOpen] = useState(false);
+  const [zonaAEditarForm, setZonaAEditarForm] = useState(null);
+  const [vistaModoZonas, setVistaModoZonas] = useState('satelital'); // 'satelital' | 'tarjetas'
+  const [capaSatelitalTipo, setCapaSatelitalTipo] = useState('satelite'); // 'satelite' | 'calles'
+  const [puntoSatelitalPrueba, setPuntoSatelitalPrueba] = useState({
+    lat: -17.7685,
+    lng: -63.1821,
+    etiqueta: 'Equipetrol Norte (Punto de prueba satelital)'
+  });
+  const [zonaSeleccionadaMapa, setZonaSeleccionadaMapa] = useState(null);
+
   const [nuevaZonaForm, setNuevaZonaForm] = useState({
     nombre: '',
     macrozona: 'Norte',
+    lat: -17.7685,
+    lng: -63.1821,
+    radio_km: 3.0,
+    color_satelital: '#0284C7',
     recargo_lejanía: 0,
     tiempo_llegada_prom: '30 min'
   });
@@ -1095,6 +1363,63 @@ export default function App() {
     setResolucionInput('');
   };
 
+  // FÓRMULA HAVERSINE PARA CÁLCULO GEODÉSICO SATELITAL
+  const calcularDistanciaSatelitalKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // CÁLCULO INTELIGENTE DE ZONA Y RECARGO POR COORDENADAS SATELITALES
+  const resolverZonaPorCoordenadasSatelitales = (lat, lng) => {
+    const zonasActivas = zonasCobertura.filter(z => z.estado === 'ACTIVA');
+    let mejorZona = null;
+    let menorDistancia = Infinity;
+
+    for (const z of zonasActivas) {
+      const dist = calcularDistanciaSatelitalKm(lat, lng, z.lat, z.lng);
+      if (dist <= z.radio_km) {
+        if (dist < menorDistancia) {
+          menorDistancia = dist;
+          mejorZona = {
+            ...z,
+            distancia_km: dist,
+            en_cobertura: true,
+            recargo_total: z.recargo_lejanía,
+            motivo_calculo: `Dentro del radio satelital de ${z.radio_km} km (${dist.toFixed(2)} km del centro de zona)`
+          };
+        }
+      }
+    }
+
+    if (!mejorZona && zonasActivas.length > 0) {
+      for (const z of zonasActivas) {
+        const dist = calcularDistanciaSatelitalKm(lat, lng, z.lat, z.lng);
+        if (dist < menorDistancia) {
+          menorDistancia = dist;
+          const excesoKm = dist - z.radio_km;
+          const recargoExtra = Math.round(excesoKm * 2.5); // 2.5 BOB por km fuera de geocerca
+          mejorZona = {
+            ...z,
+            distancia_km: dist,
+            en_cobertura: false,
+            recargo_total: z.recargo_lejanía + recargoExtra,
+            exceso_km: excesoKm,
+            motivo_calculo: `Fuera de geocerca por ${excesoKm.toFixed(1)} km. Recargo base + lejanía satelital (${recargoExtra} BOB extra)`
+          };
+        }
+      }
+    }
+
+    return mejorZona;
+  };
+
   const handleGuardarNuevaZona = (e) => {
     e.preventDefault();
     if (!nuevaZonaForm.nombre) return;
@@ -1103,6 +1428,10 @@ export default function App() {
       id: `zn-${Date.now()}`,
       nombre: nuevaZonaForm.nombre,
       macrozona: nuevaZonaForm.macrozona,
+      lat: parseFloat(nuevaZonaForm.lat) || -17.7833,
+      lng: parseFloat(nuevaZonaForm.lng) || -63.1821,
+      radio_km: parseFloat(nuevaZonaForm.radio_km) || 3.0,
+      color_satelital: nuevaZonaForm.color_satelital || '#0284C7',
       recargo_lejanía: parseFloat(nuevaZonaForm.recargo_lejanía) || 0,
       estado: 'ACTIVA',
       tiempo_llegada_prom: nuevaZonaForm.tiempo_llegada_prom || '30 min'
@@ -1113,15 +1442,42 @@ export default function App() {
     setNuevaZonaForm({
       nombre: '',
       macrozona: 'Norte',
+      lat: -17.7685,
+      lng: -63.1821,
+      radio_km: 3.0,
+      color_satelital: '#0284C7',
       recargo_lejanía: 0,
       tiempo_llegada_prom: '30 min'
     });
-    mostrarToast(`🗺️ Zona ${nueva.nombre} habilitada.`);
+    mostrarToast(`🛰️ Zona satelital ${nueva.nombre} habilitada.`);
+  };
+
+  const handleAbrirEditarZona = (zona) => {
+    setZonaAEditarForm({ ...zona });
+    setModalEditarZonaOpen(true);
+  };
+
+  const handleGuardarModificacionZona = (e) => {
+    e.preventDefault();
+    if (!zonaAEditarForm || !zonaAEditarForm.nombre) return;
+
+    setZonasCobertura(prev => prev.map(z => z.id === zonaAEditarForm.id ? {
+      ...zonaAEditarForm,
+      lat: parseFloat(zonaAEditarForm.lat) || -17.7833,
+      lng: parseFloat(zonaAEditarForm.lng) || -63.1821,
+      radio_km: parseFloat(zonaAEditarForm.radio_km) || 3.0,
+      recargo_lejanía: parseFloat(zonaAEditarForm.recargo_lejanía) || 0,
+      color_satelital: zonaAEditarForm.color_satelital || '#0284C7'
+    } : z));
+
+    setModalEditarZonaOpen(false);
+    setZonaAEditarForm(null);
+    mostrarToast(`🛰️ Zona satelital "${zonaAEditarForm.nombre}" modificada con éxito.`);
   };
 
   const handleToggleZona = (zonaId) => {
     setZonasCobertura(prev => prev.map(z => z.id === zonaId ? { ...z, estado: z.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA' } : z));
-    mostrarToast('Cobertura de zona actualizada.');
+    mostrarToast('Estado de cobertura satelital actualizado.');
   };
 
   const handleEnviarRespuestaResena = (e) => {
@@ -4309,98 +4665,457 @@ export default function App() {
           {/* =================================================================
               SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ
              ================================================================= */}
-          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'zonas_cobertura' && (
-            <div>
-              <div className="page-title-row">
-                <div>
-                  <h1 className="page-title">Zonas de Cobertura y Tarifas por Barrio</h1>
-                  <p className="page-subtitle">Configura barrios de atención en Santa Cruz de la Sierra y recargos por desplazamiento</p>
-                </div>
-                <button className="btn-primary" onClick={() => setModalNuevaZonaOpen(true)}>
-                  <MapPin size={16} />
-                  <span>+ Agregar Zona de Cobertura</span>
-                </button>
-              </div>
+          {/* =================================================================
+              SUPERADMIN: ZONAS DE COBERTURA SANTA CRUZ (VISOR SATELITAL Y GEOCÁLCULO)
+             ================================================================= */}
+          {currentUser.rol === 'SUPER_ADMIN' && activeTab === 'zonas_cobertura' && (() => {
+            const calculoActual = resolverZonaPorCoordenadasSatelitales(puntoSatelitalPrueba.lat, puntoSatelitalPrueba.lng);
 
-              <div className="kpi-grid" style={{ marginBottom: 20 }}>
-                <div className="kpi-card">
-                  <span className="kpi-label">Zonas Activas</span>
-                  <div className="kpi-value" style={{ color: '#059669' }}>
-                    {zonasCobertura.filter(z => z.estado === 'ACTIVA').length}
+            return (
+              <div>
+                <div className="page-title-row" style={{ flexWrap: 'wrap', gap: 14 }}>
+                  <div>
+                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Globe size={26} color="#0284C7" />
+                      <span>Zonas de Cobertura Satelital & Geocálculo</span>
+                    </h1>
+                    <p className="page-subtitle">
+                      Georreferenciación satelital en tiempo real sobre Santa Cruz de la Sierra. Cálculo automático de recargos y tiempos por distancia geodésica (Haversine).
+                    </p>
                   </div>
-                  <div className="kpi-subtext">Barrios cubiertos en la red</div>
-                </div>
 
-                <div className="kpi-card">
-                  <span className="kpi-label">Cobertura Urbana Estimada</span>
-                  <div className="kpi-value" style={{ color: '#0284C7' }}>
-                    92%
-                  </div>
-                  <div className="kpi-subtext">Radio metropolitano de Santa Cruz</div>
-                </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {/* Selector de Modo de Vista */}
+                    <div style={{ background: '#F1F5F9', padding: 4, borderRadius: 10, display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => setVistaModoZonas('satelital')}
+                        style={{
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: vistaModoZonas === 'satelital' ? '#0284C7' : 'transparent',
+                          color: vistaModoZonas === 'satelital' ? 'white' : '#64748B'
+                        }}
+                      >
+                        <Radio size={14} />
+                        <span>Visor Satelital GPS</span>
+                      </button>
 
-                <div className="kpi-card">
-                  <span className="kpi-label">Recargo Lejanía Promedio</span>
-                  <div className="kpi-value" style={{ color: '#7C3AED' }}>
-                    {(zonasCobertura.reduce((s, z) => s + z.recargo_lejanía, 0) / zonasCobertura.length).toFixed(2)} BOB
-                  </div>
-                  <div className="kpi-subtext">Abonado 100% al personal de limpieza</div>
-                </div>
-
-                <div className="kpi-card">
-                  <span className="kpi-label">Tiempo Promedio de Arribo</span>
-                  <div className="kpi-value">
-                    36 min
-                  </div>
-                  <div className="kpi-subtext">Despacho de cuadrillas</div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                {zonasCobertura.map(zona => (
-                  <div key={zona.id} style={{ background: 'white', padding: 18, borderRadius: 16, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0F172A' }}>{zona.nombre}</div>
-                        <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Macrozona: {zona.macrozona}</div>
-                      </div>
-                      <span style={{
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        background: zona.estado === 'ACTIVA' ? '#ECFDF5' : '#FEE2E2',
-                        color: zona.estado === 'ACTIVA' ? '#059669' : '#DC2626'
-                      }}>
-                        {zona.estado}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVistaModoZonas('tarjetas')}
+                        style={{
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: vistaModoZonas === 'tarjetas' ? '#0284C7' : 'transparent',
+                          color: vistaModoZonas === 'tarjetas' ? 'white' : '#64748B'
+                        }}
+                      >
+                        <Layers size={14} />
+                        <span>Tarjetas de Zonas ({zonasCobertura.length})</span>
+                      </button>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
-                      <div>
-                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Recargo Transporte:</div>
-                        <div style={{ fontWeight: 800, color: zona.recargo_lejanía > 0 ? '#7C3AED' : '#059669' }}>
-                          {zona.recargo_lejanía > 0 ? `+${zona.recargo_lejanía} BOB` : 'Sin recargo (0 BOB)'}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Tiempo Arribo:</div>
-                        <div style={{ fontWeight: 700, color: '#334155' }}>{zona.tiempo_llegada_prom}</div>
-                      </div>
-                    </div>
-
-                    <button
-                      className="btn-outline"
-                      style={{ width: '100%', justifyContent: 'center', fontSize: '0.78rem' }}
-                      onClick={() => handleToggleZona(zona.id)}
-                    >
-                      {zona.estado === 'ACTIVA' ? 'Deshabilitar Zona' : 'Habilitar Zona'}
+                    <button className="btn-primary" onClick={() => setModalNuevaZonaOpen(true)}>
+                      <PlusCircle size={16} />
+                      <span>+ Nueva Zona Satelital</span>
                     </button>
                   </div>
-                ))}
+                </div>
+
+                {/* KPI GRID */}
+                <div className="kpi-grid" style={{ marginBottom: 20 }}>
+                  <div className="kpi-card">
+                    <span className="kpi-label">Geocercas Satelitales Activas</span>
+                    <div className="kpi-value" style={{ color: '#059669' }}>
+                      {zonasCobertura.filter(z => z.estado === 'ACTIVA').length}
+                    </div>
+                    <div className="kpi-subtext">Polígonos circulares GPS</div>
+                  </div>
+
+                  <div className="kpi-card">
+                    <span className="kpi-label">Radio Metropolitano Cubierto</span>
+                    <div className="kpi-value" style={{ color: '#0284C7' }}>
+                      {(zonasCobertura.reduce((s, z) => s + (z.radio_km || 3), 0)).toFixed(1)} km
+                    </div>
+                    <div className="kpi-subtext">Suma de radios geodésicos</div>
+                  </div>
+
+                  <div className="kpi-card">
+                    <span className="kpi-label">Recargo Promedio Transporte</span>
+                    <div className="kpi-value" style={{ color: '#7C3AED' }}>
+                      {(zonasCobertura.reduce((s, z) => s + z.recargo_lejanía, 0) / zonasCobertura.length).toFixed(2)} BOB
+                    </div>
+                    <div className="kpi-subtext">Calculado por lejanía</div>
+                  </div>
+
+                  <div className="kpi-card">
+                    <span className="kpi-label">Modo de Detección</span>
+                    <div className="kpi-value" style={{ color: '#0F172A', fontSize: '1.25rem' }}>
+                      Satelital GPS
+                    </div>
+                    <div className="kpi-subtext">Cálculo por coordenadas vivas</div>
+                  </div>
+                </div>
+
+                {/* =============================================================
+                    MODO 1: VISOR SATELITAL GPS & CALCULADOR EN TIEMPO REAL
+                   ============================================================= */}
+                {vistaModoZonas === 'satelital' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+                    
+                    {/* Barra de Controles Satelitales y Presets */}
+                    <div style={{ background: 'white', padding: '12px 18px', borderRadius: 14, border: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155' }}>
+                          Capa Satelital:
+                        </span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            style={{
+                              background: capaSatelitalTipo === 'satelite' ? '#0F172A' : 'white',
+                              color: capaSatelitalTipo === 'satelite' ? 'white' : '#334155',
+                              borderColor: capaSatelitalTipo === 'satelite' ? '#0F172A' : '#CBD5E1',
+                              fontWeight: 700,
+                              gap: 6
+                            }}
+                            onClick={() => setCapaSatelitalTipo('satelite')}
+                          >
+                            <Globe size={13} />
+                            <span>🛰️ Satélite HD (Esri/Maxar)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm"
+                            style={{
+                              background: capaSatelitalTipo === 'calles' ? '#0284C7' : 'white',
+                              color: capaSatelitalTipo === 'calles' ? 'white' : '#334155',
+                              borderColor: capaSatelitalTipo === 'calles' ? '#0284C7' : '#CBD5E1',
+                              fontWeight: 700,
+                              gap: 6
+                            }}
+                            onClick={() => setCapaSatelitalTipo('calles')}
+                          >
+                            <MapPin size={13} />
+                            <span>🗺️ Calles y Anillos (Carto/OSM)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Botones de Acceso Rápido a Puntos Clave de SCZ */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.74rem', color: '#64748B', fontWeight: 600 }}>Puntos de Prueba:</span>
+                        {[
+                          { label: 'Torre Equipetrol', lat: -17.7685, lng: -63.1821 },
+                          { label: 'Plaza 24 de Septiembre', lat: -17.7833, lng: -63.1821 },
+                          { label: 'Las Palmas', lat: -17.7950, lng: -63.2050 },
+                          { label: 'Av. Beni / Hamacas', lat: -17.7520, lng: -63.1650 },
+                          { label: 'Plan 3000', lat: -17.8180, lng: -63.1350 },
+                          { label: 'Viru Viru (Extendida)', lat: -17.6444, lng: -63.1353 }
+                        ].map((punto, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="btn-outline btn-sm"
+                            style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                            onClick={() => {
+                              setPuntoSatelitalPrueba({ lat: punto.lat, lng: punto.lng, etiqueta: punto.label });
+                              setZonaSeleccionadaMapa(null);
+                            }}
+                          >
+                            <span>{punto.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Contenedor Principal: Mapa Satelital + Telemetría de Geocálculo */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1.8fr) 1.2fr', gap: 18 }}>
+                      
+                      {/* MAPA LEAFLET SATELITAL */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ position: 'relative' }}>
+                          <VisorSatelitalZonas
+                            zonas={zonasCobertura}
+                            puntoPrueba={puntoSatelitalPrueba}
+                            onSelectPunto={(p) => setPuntoSatelitalPrueba(p)}
+                            onSelectZona={(z) => setZonaSeleccionadaMapa(z)}
+                            zonaSeleccionada={zonaSeleccionadaMapa}
+                            capaTipo={capaSatelitalTipo}
+                          />
+
+                          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 500 }} className="sat-control-badge">
+                            <Crosshair size={13} color="#38BDF8" />
+                            <span>Haz clic en cualquier punto del mapa satelital para calcular la zona</span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', color: '#64748B', display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
+                          <span>📡 Cobertura visualizada mediante círculos geodésicos reales sobre Santa Cruz.</span>
+                          <span>Centrado: <strong>[-17.7833, -63.1821]</strong></span>
+                        </div>
+                      </div>
+
+                      {/* PANEL DE TELEMETRÍA Y GEOCÁLCULO SATELITAL */}
+                      <div style={{ background: 'white', borderRadius: 16, border: '1px solid #E2E8F0', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#0284C7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              Geoprocesamiento en Tiempo Real
+                            </div>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A', margin: '2px 0 0' }}>
+                              Resultado Satelital GPS
+                            </h3>
+                          </div>
+
+                          {calculoActual ? (
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: 8,
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: calculoActual.en_cobertura ? '#ECFDF5' : '#FEF3C7',
+                              color: calculoActual.en_cobertura ? '#059669' : '#D97706',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5
+                            }}>
+                              {calculoActual.en_cobertura ? '✓ DENTRO DE COBERTURA' : '⚠️ ZONA SATELITAL EXTENDIDA'}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Coordenadas del punto actual */}
+                        <div style={{ background: '#0F172A', color: 'white', padding: 14, borderRadius: 12 }}>
+                          <div style={{ fontSize: '0.7rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Coordenadas Satelitales Detectadas:</span>
+                            <span style={{ color: '#38BDF8', fontFamily: 'monospace' }}>WGS84 GPS</span>
+                          </div>
+                          <div style={{ fontSize: '1.1rem', fontFamily: 'monospace', fontWeight: 900, color: '#38BDF8', marginTop: 4 }}>
+                            {puntoSatelitalPrueba.lat}, {puntoSatelitalPrueba.lng}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#CBD5E1', marginTop: 2 }}>
+                            {puntoSatelitalPrueba.etiqueta || 'Punto sobre mapa'}
+                          </div>
+                        </div>
+
+                        {/* Ficha de Cálculo de Zona */}
+                        {calculoActual && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 700 }}>ZONA ASIGNADA POR SATÉLITE:</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: calculoActual.color_satelital || '#0284C7' }}></span>
+                                <span>{calculoActual.nombre}</span>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
+                                Macrozona: <strong>{calculoActual.macrozona}</strong> • Radio de Cobertura: <strong>{calculoActual.radio_km} km</strong>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                              <div style={{ background: '#F8FAFC', padding: 10, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700 }}>Distancia Geodésica:</div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0F172A', fontFamily: 'monospace' }}>
+                                  {calculoActual.distancia_km.toFixed(2)} km
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#64748B' }}>al centro georreferenciado</div>
+                              </div>
+
+                              <div style={{ background: '#F8FAFC', padding: 10, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700 }}>Recargo Transporte:</div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: calculoActual.recargo_total > 0 ? '#7C3AED' : '#059669' }}>
+                                  {calculoActual.recargo_total > 0 ? `+${calculoActual.recargo_total} BOB` : '0 BOB'}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#64748B' }}>Tiempo: {calculoActual.tiempo_llegada_prom}</div>
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: '0.76rem', color: '#475569', background: '#F1F5F9', padding: 10, borderRadius: 8, fontStyle: 'italic', borderLeft: '3px solid #0284C7' }}>
+                              📡 <strong>Cálculo Satelital:</strong> {calculoActual.motivo_calculo}
+                            </div>
+
+                            {/* Acciones Rápidas sobre la Zona Detectada */}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }}
+                                onClick={() => handleAbrirEditarZona(calculoActual)}
+                              >
+                                <Edit3 size={14} />
+                                <span>Modificar Esta Zona</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn-outline"
+                                style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }}
+                                onClick={() => {
+                                  setNuevaZonaForm({
+                                    nombre: `Zona Satelital (${puntoSatelitalPrueba.lat}, ${puntoSatelitalPrueba.lng})`,
+                                    macrozona: calculoActual.macrozona || 'Norte',
+                                    lat: puntoSatelitalPrueba.lat,
+                                    lng: puntoSatelitalPrueba.lng,
+                                    radio_km: 3.0,
+                                    color_satelital: '#06B6D4',
+                                    recargo_lejanía: calculoActual.recargo_total || 0,
+                                    tiempo_llegada_prom: '35 min'
+                                  });
+                                  setModalNuevaZonaOpen(true);
+                                }}
+                              >
+                                <PlusCircle size={14} />
+                                <span>Crear Zona Aquí</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* =============================================================
+                    TARJETAS DE TODAS LAS ZONAS SATELITALES (CON BOTÓN MODIFICAR)
+                   ============================================================= */}
+                <div style={{ marginTop: vistaModoZonas === 'satelital' ? 10 : 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Layers size={18} color="#0284C7" />
+                      <span>Catálogo de Polígonos y Tarifas por Barrio</span>
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                      Cada zona cuenta con coordenadas satelitales, radio de geocerca y recargo configurable.
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                    {zonasCobertura.map(zona => (
+                      <div
+                        key={zona.id}
+                        style={{
+                          background: 'white',
+                          padding: 18,
+                          borderRadius: 16,
+                          border: zonaSeleccionadaMapa?.id === zona.id ? '2px solid #0284C7' : '1px solid #E2E8F0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                          boxShadow: zonaSeleccionadaMapa?.id === zona.id ? '0 4px 12px rgba(2, 132, 199, 0.15)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ width: 12, height: 12, borderRadius: '50%', background: zona.color_satelital || '#0284C7', marginTop: 4, flexShrink: 0 }}></span>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0F172A' }}>{zona.nombre}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Macrozona: <strong>{zona.macrozona}</strong></div>
+                            </div>
+                          </div>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            background: zona.estado === 'ACTIVA' ? '#ECFDF5' : '#FEE2E2',
+                            color: zona.estado === 'ACTIVA' ? '#059669' : '#DC2626'
+                          }}>
+                            {zona.estado}
+                          </span>
+                        </div>
+
+                        {/* Parámetros Satelitales */}
+                        <div style={{ background: '#F8FAFC', padding: 10, borderRadius: 10, border: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
+                            <span style={{ color: '#64748B' }}>Centro Satelital:</span>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
+                              {zona.lat}, {zona.lng}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem' }}>
+                            <span style={{ color: '#64748B' }}>Radio de Geocerca:</span>
+                            <span style={{ fontWeight: 800, color: '#0284C7' }}>
+                              {zona.radio_km} km ({(zona.radio_km * 1000).toLocaleString()} m)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Tarifas y Arribo */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: 10, borderRadius: 10 }}>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Recargo Transporte:</div>
+                            <div style={{ fontWeight: 800, color: zona.recargo_lejanía > 0 ? '#7C3AED' : '#059669' }}>
+                              {zona.recargo_lejanía > 0 ? `+${zona.recargo_lejanía} BOB` : 'Sin recargo (0 BOB)'}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Tiempo Arribo:</div>
+                            <div style={{ fontWeight: 700, color: '#334155' }}>{zona.tiempo_llegada_prom}</div>
+                          </div>
+                        </div>
+
+                        {/* Botones de Acción: MODIFICAR, VER EN SATÉLITE, HABILITAR/DESHABILITAR */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 'auto' }}>
+                          <button
+                            type="button"
+                            className="btn-outline"
+                            style={{ justifyContent: 'center', fontSize: '0.76rem', gap: 5, borderColor: '#0284C7', color: '#0284C7' }}
+                            onClick={() => handleAbrirEditarZona(zona)}
+                          >
+                            <Edit3 size={13} />
+                            <span>Modificar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-outline"
+                            style={{ justifyContent: 'center', fontSize: '0.76rem', gap: 5 }}
+                            onClick={() => {
+                              setZonaSeleccionadaMapa(zona);
+                              setPuntoSatelitalPrueba({ lat: zona.lat, lng: zona.lng, etiqueta: zona.nombre });
+                              setVistaModoZonas('satelital');
+                              mostrarToast(`🛰️ Centrando mapa satelital en ${zona.nombre}...`);
+                            }}
+                          >
+                            <Globe size={13} />
+                            <span>Ver en Satélite</span>
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          style={{ width: '100%', justifyContent: 'center', fontSize: '0.74rem', padding: '5px 8px', color: zona.estado === 'ACTIVA' ? '#DC2626' : '#059669' }}
+                          onClick={() => handleToggleZona(zona.id)}
+                        >
+                          {zona.estado === 'ACTIVA' ? 'Deshabilitar Zona' : 'Habilitar Zona'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* =================================================================
               MÓDULO: BITÁCORA FORENSE & HISTORIAL DE TRABAJOS (AUDITORÍA & DISPUTAS)
@@ -6765,15 +7480,18 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL: AGREGAR ZONA DE COBERTURA (SUPERADMIN)
+          MODAL: AGREGAR ZONA DE COBERTURA SATELITAL (SUPERADMIN)
          ===================================================================== */}
       {modalNuevaZonaOpen && (
         <div className="modal-overlay" onClick={() => setModalNuevaZonaOpen(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
             <form onSubmit={handleGuardarNuevaZona}>
               <div className="modal-header">
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Nueva Zona de Cobertura</h3>
-                <button type="button" onClick={() => setModalNuevaZonaOpen(false)} style={{ border: 'none', background: 'transparent' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Globe size={20} color="#0284C7" />
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>Nueva Zona Satelital</h3>
+                </div>
+                <button type="button" onClick={() => setModalNuevaZonaOpen(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
                   <X size={20} />
                 </button>
               </div>
@@ -6789,7 +7507,7 @@ export default function App() {
                     placeholder="ej. Las Palmas / Doble Vía La Guardia"
                     value={nuevaZonaForm.nombre}
                     onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, nombre: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
                   />
                 </div>
 
@@ -6808,10 +7526,83 @@ export default function App() {
                       <option value="Este">Este</option>
                       <option value="Oeste">Oeste</option>
                       <option value="Centro">Centro</option>
+                      <option value="Noreste">Noreste</option>
+                      <option value="Sur - Este">Sur - Este</option>
+                      <option value="Norte Metropolitano">Norte Metropolitano</option>
                       <option value="Metropolitana">Metropolitana</option>
                     </select>
                   </div>
 
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Color de Geocerca:
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
+                      <input
+                        type="color"
+                        value={nuevaZonaForm.color_satelital || '#0284C7'}
+                        onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, color_satelital: e.target.value })}
+                        style={{ width: 34, height: 34, border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.74rem', fontFamily: 'monospace' }}>{nuevaZonaForm.color_satelital || '#0284C7'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coordenadas Satelitales GPS */}
+                <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#0284C7', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Globe size={13} />
+                    <span>Centro Geodésico y Radio Satelital</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Latitud GPS:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={nuevaZonaForm.lat}
+                        onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, lat: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 700 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Longitud GPS:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={nuevaZonaForm.lng}
+                        onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, lng: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 700 }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                      Radio de Cobertura: {nuevaZonaForm.radio_km} km ({(nuevaZonaForm.radio_km * 1000).toLocaleString()} metros)
+                    </label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="15"
+                      step="0.1"
+                      value={nuevaZonaForm.radio_km || 3.0}
+                      onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, radio_km: parseFloat(e.target.value) })}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
                       Recargo Transporte (BOB):
@@ -6824,19 +7615,19 @@ export default function App() {
                       style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
-                    Tiempo Estimado de Llegada:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ej. 30 a 45 min"
-                    value={nuevaZonaForm.tiempo_llegada_prom}
-                    onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, tiempo_llegada_prom: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
-                  />
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Tiempo Estimado de Llegada:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ej. 30 a 45 min"
+                      value={nuevaZonaForm.tiempo_llegada_prom}
+                      onChange={(e) => setNuevaZonaForm({ ...nuevaZonaForm, tiempo_llegada_prom: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -6845,8 +7636,194 @@ export default function App() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary">
-                  <MapPin size={15} />
-                  <span>Habilitar Zona</span>
+                  <Globe size={15} />
+                  <span>Habilitar Zona Satelital</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: MODIFICAR ZONA DE COBERTURA SATELITAL (SUPERADMIN)
+         ===================================================================== */}
+      {modalEditarZonaOpen && zonaAEditarForm && (
+        <div className="modal-overlay" onClick={() => setModalEditarZonaOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <form onSubmit={handleGuardarModificacionZona}>
+              <div className="modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Edit3 size={20} color="#0284C7" />
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>Modificar Zona Satelital</h3>
+                </div>
+                <button type="button" onClick={() => setModalEditarZonaOpen(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                    Nombre del Barrio / Zona:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={zonaAEditarForm.nombre}
+                    onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, nombre: e.target.value })}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Macrozona:
+                    </label>
+                    <select
+                      value={zonaAEditarForm.macrozona}
+                      onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, macrozona: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    >
+                      <option value="Norte">Norte</option>
+                      <option value="Sur">Sur</option>
+                      <option value="Este">Este</option>
+                      <option value="Oeste">Oeste</option>
+                      <option value="Centro">Centro</option>
+                      <option value="Noreste">Noreste</option>
+                      <option value="Sur - Este">Sur - Este</option>
+                      <option value="Norte Metropolitano">Norte Metropolitano</option>
+                      <option value="Metropolitana">Metropolitana</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Estado Operativo:
+                    </label>
+                    <select
+                      value={zonaAEditarForm.estado}
+                      onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, estado: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
+                    >
+                      <option value="ACTIVA">ACTIVA (En Servicio)</option>
+                      <option value="INACTIVA">INACTIVA (Suspendida)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Coordenadas Satelitales */}
+                <div style={{ background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#0284C7', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Globe size={13} />
+                    <span>Parámetros Satelitales GPS (WGS84)</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Latitud GPS:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={zonaAEditarForm.lat}
+                        onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, lat: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 700 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Longitud GPS:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        required
+                        value={zonaAEditarForm.lng}
+                        onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, lng: e.target.value })}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontFamily: 'monospace', fontWeight: 700 }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Radio de Cobertura (km):
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="15"
+                          step="0.1"
+                          value={zonaAEditarForm.radio_km || 3.0}
+                          onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, radio_km: parseFloat(e.target.value) })}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontWeight: 800, fontFamily: 'monospace', minWidth: 45 }}>
+                          {zonaAEditarForm.radio_km} km
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: '#64748B', marginBottom: 3 }}>
+                        Color Geocerca:
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="color"
+                          value={zonaAEditarForm.color_satelital || '#0284C7'}
+                          onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, color_satelital: e.target.value })}
+                          style={{ width: 34, height: 34, border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.74rem', fontFamily: 'monospace' }}>{zonaAEditarForm.color_satelital || '#0284C7'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Recargo Transporte (BOB):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={zonaAEditarForm.recargo_lejanía}
+                      onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, recargo_lejanía: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: 4 }}>
+                      Tiempo Estimado de Llegada:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ej. 25 a 35 min"
+                      value={zonaAEditarForm.tiempo_llegada_prom}
+                      onChange={(e) => setZonaAEditarForm({ ...zonaAEditarForm, tiempo_llegada_prom: e.target.value })}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-outline" onClick={() => setModalEditarZonaOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary">
+                  <Check size={16} />
+                  <span>Guardar Modificación Satelital</span>
                 </button>
               </div>
             </form>
