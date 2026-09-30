@@ -52,7 +52,9 @@ import {
   EyeOff,
   MessageSquare,
   Calendar,
-  Ticket
+  Ticket,
+  FileText,
+  Navigation
 } from 'lucide-react';
 
 // ============================================================================
@@ -383,6 +385,7 @@ const ORDENES_INICIALES = [
     cliente_telefono: '70012345',
     direccion: 'Torre Equipetrol Platinum, Depto 4B, 3er Anillo',
     zona: 'Equipetrol',
+    coordenadas_gps: '-17.7685, -63.1821',
     servicio: 'Limpieza Integral de Departamento',
     ambientes_resumen: '2 Dormitorios, 1 Baño, 1 Cocina, 1 Sala (+Horno)',
     monto_total: 135.0,
@@ -390,6 +393,16 @@ const ORDENES_INICIALES = [
     estado_actual: 'EN_CAMINO',
     trabajador_id: 'w-1',
     hora_programada: '10:00 AM Hoy',
+    fecha_servicio: '2026-09-10',
+    hora_llegada_gps: '09:48 AM',
+    duracion_servicio: 'Estimado 2.5 horas',
+    disputa_asociada: null,
+    bitacora_trazabilidad: [
+      { hora: '08:00 AM', evento: 'Reserva confirmada en App Móvil', detalle: 'Cliente reservó limpieza integral y adicional de horno', estado: 'SOLICITADA' },
+      { hora: '08:20 AM', evento: 'Cuadrilla designada', detalle: 'María Elena Quispe asignada por la administradora de Brillante Express', estado: 'ASIGNADA' },
+      { hora: '09:15 AM', evento: 'Trayecto iniciado en vehículo', detalle: 'GPS activado desde base operativa calle Jazmines', estado: 'EN_CAMINO' },
+      { hora: '09:48 AM', evento: 'Arribo a portería verificado', detalle: 'Check-in en Torre Equipetrol Platinum con código de visitante', estado: 'LLEGUE' }
+    ],
     evidencias: {
       antes: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80',
       despues: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=600&q=80',
@@ -404,14 +417,35 @@ const ORDENES_INICIALES = [
     cliente_telefono: '78456123',
     direccion: 'Condominio La Riviera, Torre 1, Depto 12A',
     zona: 'Equipetrol Norte',
+    coordenadas_gps: '-17.7612, -63.1904',
     servicio: 'Limpieza Profunda & Desinfección Hospitalaria',
     ambientes_resumen: '3 Dormitorios, 2 Baños, Cocina, Terraza',
     monto_total: 195.0,
     metodo_pago: 'Transferencia QR / Banco',
-    estado_actual: 'SOLICITADA',
-    trabajador_id: null,
+    estado_actual: 'EN_PROCESO',
+    trabajador_id: 'w-2',
     hora_programada: '11:30 AM Hoy',
-    evidencias: null
+    fecha_servicio: '2026-09-08',
+    hora_llegada_gps: '12:05 PM',
+    duracion_servicio: '3.5 horas',
+    disputa_asociada: {
+      ticket_id: 'REC-101',
+      motivo: 'Demora de 35 minutos en la llegada por tráfico en 4to anillo',
+      severidad: 'MEDIA',
+      estado: 'EN_REVISION'
+    },
+    bitacora_trazabilidad: [
+      { hora: '10:00 AM', evento: 'Reserva solicitada vía app móvil', detalle: 'Cliente solicitó servicio hospitalario desinfectante', estado: 'SOLICITADA' },
+      { hora: '10:30 AM', evento: 'Asignado a Roberto Sandoval', detalle: 'Equipo con hidrolavadora y químicos desinfectantes', estado: 'ASIGNADA' },
+      { hora: '11:10 AM', evento: 'Salida en ruta con retraso', detalle: 'Congestión vehicular intensa en 4to anillo y Av. San Martín', estado: 'EN_CAMINO' },
+      { hora: '12:05 PM', evento: 'Llegada reportada a condominio (Retraso)', detalle: 'Check-in realizado en recepción. Cliente reporta inconformidad de horario', estado: 'LLEGUE' },
+      { hora: '12:15 PM', evento: 'Fotos del antes subidas e inicio', detalle: 'Trabajador inicia labores en sala y dormitorios', estado: 'EN_PROCESO' }
+    ],
+    evidencias: {
+      antes: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80',
+      despues: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=600&q=80',
+      auditoria_aprobada: false
+    }
   },
   {
     id: 'ord-103',
@@ -421,6 +455,7 @@ const ORDENES_INICIALES = [
     cliente_telefono: '75098234',
     direccion: 'Edificio Sirari Sky, Depto 6C, Calle Los Claveles',
     zona: 'Sirari',
+    coordenadas_gps: '-17.7710, -63.1795',
     servicio: 'Limpieza Integral de Departamento',
     ambientes_resumen: '1 Dormitorio, 1 Baño, Sala-Kitchenette',
     monto_total: 95.0,
@@ -428,6 +463,23 @@ const ORDENES_INICIALES = [
     estado_actual: 'COMPLETADA',
     trabajador_id: 'w-2',
     hora_programada: '08:30 AM Hoy',
+    fecha_servicio: '2026-09-09',
+    hora_llegada_gps: '08:25 AM',
+    duracion_servicio: '2 horas 15 min',
+    disputa_asociada: {
+      ticket_id: 'REC-103',
+      motivo: 'Cliente reagendó servicio y necesita confirmación de nuevo limpiador',
+      severidad: 'ALTA',
+      estado: 'ABIERTO'
+    },
+    bitacora_trazabilidad: [
+      { hora: '07:30 AM', evento: 'Orden programada anticipada', detalle: 'Cliente reservó desde el día anterior', estado: 'SOLICITADA' },
+      { hora: '07:45 AM', evento: 'Limpiador asignado', detalle: 'Roberto Sandoval confirmado con kit express', estado: 'ASIGNADA' },
+      { hora: '08:05 AM', evento: 'En camino hacia Sirari', detalle: 'Ruta directa por 3er anillo externo', estado: 'EN_CAMINO' },
+      { hora: '08:25 AM', evento: 'Arribo puntual con 5 min de anticipación', detalle: 'Ingreso autorizado por recepción Sirari Sky', estado: 'LLEGUE' },
+      { hora: '08:35 AM', evento: 'Inspección previa y fotos ANTES', detalle: 'Verificación de cocina, mamparas y baño', estado: 'EN_PROCESO' },
+      { hora: '10:45 AM', evento: 'Fotos del DESPUÉS cargadas al sistema', detalle: 'Áreas higienizadas y pulidas al 100%', estado: 'COMPLETADA' }
+    ],
     evidencias: {
       antes: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=600&q=80',
       despues: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80',
@@ -442,6 +494,7 @@ const ORDENES_INICIALES = [
     cliente_telefono: '73012890',
     direccion: 'Condominio Smart Urbarí, Depto 3B',
     zona: 'Urbarí',
+    coordenadas_gps: '-17.7850, -63.1950',
     servicio: 'Lavado y Desmanchado de Tapizados y Alfombras',
     ambientes_resumen: '2 Sofás 3 Cuerpos + Alfombra de Sala',
     monto_total: 160.0,
@@ -449,6 +502,23 @@ const ORDENES_INICIALES = [
     estado_actual: 'COMPLETADA',
     trabajador_id: 'w-4',
     hora_programada: 'Ayer 15:00',
+    fecha_servicio: '2026-09-07',
+    hora_llegada_gps: '14:52 PM',
+    duracion_servicio: '2 horas 40 min',
+    disputa_asociada: {
+      ticket_id: 'REC-102',
+      motivo: 'Solicita comprobante formal con NIT para expensas del condominio',
+      severidad: 'BAJA',
+      estado: 'RESUELTO'
+    },
+    bitacora_trazabilidad: [
+      { hora: '13:00 PM', evento: 'Reserva confirmada de tapicería especializada', detalle: 'Equipo de inyección/extracción asignado', estado: 'SOLICITADA' },
+      { hora: '13:30 PM', evento: 'Asignado a Javier Morales (EcoClean)', detalle: 'Maquinaria Kärcher Puzzi 10/1 cargada', estado: 'ASIGNADA' },
+      { hora: '14:20 PM', evento: 'Desplazamiento iniciado hacia Urbarí', detalle: 'Ruta por Av. Grigotá y 2do anillo', estado: 'EN_CAMINO' },
+      { hora: '14:52 PM', evento: 'Arribo al condominio verificado por GPS', detalle: 'Ingreso al depto 3B', estado: 'LLEGUE' },
+      { hora: '15:05 PM', evento: 'Fotos del antes registradas', detalle: 'Evidencia de manchas de café en tapizados', estado: 'EN_PROCESO' },
+      { hora: '17:35 PM', evento: 'Lavado completado y fotos después registradas', detalle: 'Desmanchado al vapor exitoso y entrega', estado: 'COMPLETADA' }
+    ],
     evidencias: {
       antes: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80',
       despues: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=600&q=80',
@@ -547,6 +617,15 @@ export default function App() {
   const [ordenDetalleSeleccionada, setOrdenDetalleSeleccionada] = useState(null);
   const [filtroEstadoTodasOrdenes, setFiltroEstadoTodasOrdenes] = useState('TODAS');
   const [filtroEmpresaTodasOrdenes, setFiltroEmpresaTodasOrdenes] = useState('TODAS');
+
+  // MÓDULO BITÁCORA, HISTORIAL DE TRABAJOS & EXPEDIENTE FORENSE (PARA DISPUTAS Y AUDITORÍAS)
+  const [modalExpedienteTrabajoOpen, setModalExpedienteTrabajoOpen] = useState(false);
+  const [expedienteTrabajoSeleccionado, setExpedienteTrabajoSeleccionado] = useState(null);
+  const [busquedaHistorial, setBusquedaHistorial] = useState('');
+  const [filtroZonaHistorial, setFiltroZonaHistorial] = useState('TODAS');
+  const [filtroEstadoHistorial, setFiltroEstadoHistorial] = useState('TODAS');
+  const [filtroDisputaHistorial, setFiltroDisputaHistorial] = useState('TODAS');
+  const [filtroEmpresaHistorial, setFiltroEmpresaHistorial] = useState('TODAS');
 
   // GESTIÓN EMPLEADOS POR LA EMPRESA
   const [modalCrearEmpleadoEmpresaOpen, setModalCrearEmpleadoEmpresaOpen] = useState(false);
@@ -1699,6 +1778,38 @@ export default function App() {
   const gmvGlobal = ordenes.reduce((sum, o) => sum + o.monto_total, 0);
   const comisionesGlobales = ordenes.reduce((sum, o) => sum + calcularOrdenFinanzas(o).comision_limpygo, 0);
 
+  // FILTRADO DINÁMICO PARA EL MÓDULO DE HISTORIAL Y EXPEDIENTES FORENSES
+  const listaBaseHistorial = currentUser.rol === 'SUPER_ADMIN' ? ordenes : ordenesEmpresa;
+
+  const ordenesHistorialFiltradas = listaBaseHistorial.filter(ord => {
+    if (currentUser.rol === 'SUPER_ADMIN' && filtroEmpresaHistorial !== 'TODAS') {
+      if (ord.empresa_id !== filtroEmpresaHistorial) return false;
+    }
+    if (filtroEstadoHistorial !== 'TODAS' && ord.estado_actual !== filtroEstadoHistorial) {
+      return false;
+    }
+    if (filtroZonaHistorial !== 'TODAS' && ord.zona !== filtroZonaHistorial) {
+      return false;
+    }
+    const tieneDisputa = ord.disputa_asociada || reclamos.some(r => r.orden_id === ord.id || r.orden_id === ord.codigo_seguimiento);
+    if (filtroDisputaHistorial === 'CON_DISPUTA' && !tieneDisputa) {
+      return false;
+    }
+    if (filtroDisputaHistorial === 'SIN_DISPUTA' && tieneDisputa) {
+      return false;
+    }
+    if (busquedaHistorial.trim() !== '') {
+      const q = busquedaHistorial.toLowerCase();
+      const w = trabajadores.find(t => t.id === ord.trabajador_id);
+      const matchCodigo = ord.codigo_seguimiento?.toLowerCase().includes(q);
+      const matchCliente = ord.cliente_nombre?.toLowerCase().includes(q) || ord.cliente_telefono?.includes(q);
+      const matchDireccion = ord.direccion?.toLowerCase().includes(q) || ord.zona?.toLowerCase().includes(q);
+      const matchLimpiador = w?.nombre?.toLowerCase().includes(q);
+      if (!matchCodigo && !matchCliente && !matchDireccion && !matchLimpiador) return false;
+    }
+    return true;
+  });
+
   const handleConfirmarAsignacion = async () => {
     if (!trabajadorElegidoId || !ordenSeleccionadaParaAsignar) return;
 
@@ -1985,6 +2096,17 @@ export default function App() {
                 <span className="nav-item-count count-neutral">{ordenes.length}</span>
               </button>
 
+              <button
+                className={`nav-item ${activeTab === 'historial_trabajos' ? 'active' : ''}`}
+                onClick={() => setActiveTab('historial_trabajos')}
+              >
+                <FileText size={18} />
+                <span>Bitácora & Historial Trabajos</span>
+                <span className="nav-item-count count-neutral" style={{ background: '#EDE9FE', color: '#7C3AED' }}>
+                  {ordenes.length}
+                </span>
+              </button>
+
               <div className="nav-section-label" style={{ marginTop: 12 }}>FINANZAS & COMISIONES</div>
 
               <button
@@ -2060,6 +2182,15 @@ export default function App() {
                 {pendientesAsignar > 0 && (
                   <span className="nav-item-count count-alert">{pendientesAsignar}</span>
                 )}
+              </button>
+
+              <button
+                className={`nav-item ${activeTab === 'historial_trabajos' ? 'active' : ''}`}
+                onClick={() => setActiveTab('historial_trabajos')}
+              >
+                <FileText size={18} />
+                <span>Historial de Trabajos</span>
+                <span className="nav-item-count count-neutral">{ordenesEmpresa.length}</span>
               </button>
 
               <button
@@ -4101,7 +4232,27 @@ export default function App() {
                       return (
                         <tr key={rec.id}>
                           <td><strong>{rec.id}</strong></td>
-                          <td><span style={{ color: '#0284C7', fontWeight: 800 }}>{rec.orden_id}</span></td>
+                          <td>
+                            <div><strong style={{ color: '#0284C7' }}>{rec.orden_id}</strong></div>
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem', gap: 4, color: '#0284C7', borderColor: '#BAE6FD', marginTop: 4, background: '#F0F9FF', cursor: 'pointer' }}
+                              onClick={() => {
+                                const ord = ordenes.find(o => o.id === rec.orden_id || o.codigo_seguimiento === rec.orden_id);
+                                if (ord) {
+                                  setExpedienteTrabajoSeleccionado(ord);
+                                  setModalExpedienteTrabajoOpen(true);
+                                } else {
+                                  mostrarToast('Expediente de trabajo no localizado.');
+                                }
+                              }}
+                              title="Ver expediente del trabajo: ruta, GPS, hora de llegada, fotos antes/después y cuadrilla"
+                            >
+                              <FileText size={11} />
+                              <span>Ver Expediente</span>
+                            </button>
+                          </td>
                           <td>{rec.cliente}</td>
                           <td>{emp?.nombre || 'Empresa'}</td>
                           <td style={{ maxWidth: 300 }}>
@@ -4247,6 +4398,323 @@ export default function App() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* =================================================================
+              MÓDULO: BITÁCORA FORENSE & HISTORIAL DE TRABAJOS (AUDITORÍA & DISPUTAS)
+              Accesible por SUPER_ADMIN y por ADMIN_EMPRESA
+             ================================================================= */}
+          {activeTab === 'historial_trabajos' && (
+            <div>
+              <div className="page-title-row">
+                <div>
+                  <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <FileText size={26} color="#0284C7" />
+                    <span>Bitácora & Historial de Trabajos</span>
+                  </h1>
+                  <p className="page-subtitle">
+                    {currentUser.rol === 'SUPER_ADMIN'
+                      ? 'Registro forense centralizado de todos los servicios, tiempos GPS, bitácora de ejecución y respaldo probatorio ante reclamos o disputas'
+                      : `Expediente operativo y trazabilidad GPS de todos los trabajos ejecutados por el personal de ${currentEmpresa.nombre}`}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    className="btn-outline" 
+                    onClick={() => {
+                      mostrarToast('📥 Exportando historial de bitácora y auditorías en formato XLSX/PDF...');
+                    }}
+                    style={{ fontSize: '0.82rem' }}
+                  >
+                    <span>Exportar Auditoría</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI CARDS */}
+              <div className="kpi-grid">
+                <div className="kpi-card">
+                  <span className="kpi-label">Total Trabajos Registrados</span>
+                  <div className="kpi-value" style={{ color: '#0284C7' }}>
+                    {listaBaseHistorial.length}
+                  </div>
+                  <div className="kpi-subtext">Expedientes almacenados</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">Servicios Finalizados</span>
+                  <div className="kpi-value" style={{ color: '#059669' }}>
+                    {listaBaseHistorial.filter(o => o.estado_actual === 'COMPLETADA').length}
+                  </div>
+                  <div className="kpi-subtext">Conformidad certificada</div>
+                </div>
+
+                <div className="kpi-card">
+                  <span className="kpi-label">En Curso / En Camino</span>
+                  <div className="kpi-value" style={{ color: '#3B82F6' }}>
+                    {listaBaseHistorial.filter(o => ['EN_CAMINO', 'LLEGUE', 'EN_PROCESO'].includes(o.estado_actual)).length}
+                  </div>
+                  <div className="kpi-subtext">Monitoreo activo GPS</div>
+                </div>
+
+                <div className="kpi-card" style={{ borderLeft: '4px solid #EF4444' }}>
+                  <span className="kpi-label">Disputas / Reclamos Activos</span>
+                  <div className="kpi-value" style={{ color: '#EF4444' }}>
+                    {listaBaseHistorial.filter(o => o.disputa_asociada || reclamos.some(r => r.orden_id === o.id || r.orden_id === o.codigo_seguimiento)).length}
+                  </div>
+                  <div className="kpi-subtext">Requieren revisión forense</div>
+                </div>
+              </div>
+
+              {/* BARRA DE FILTROS Y BÚSQUEDA */}
+              <div style={{ background: 'white', padding: '16px 20px', borderRadius: 14, border: '1px solid #E2E8F0', marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', flex: 1, minWidth: 260, position: 'relative' }}>
+                  <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por código (ej. LG-89412A), cliente, dirección o limpiador..."
+                    value={busquedaHistorial}
+                    onChange={(e) => setBusquedaHistorial(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.84rem' }}
+                  />
+                  {busquedaHistorial && (
+                    <button 
+                      onClick={() => setBusquedaHistorial('')} 
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {currentUser.rol === 'SUPER_ADMIN' && (
+                    <select
+                      value={filtroEmpresaHistorial}
+                      onChange={(e) => setFiltroEmpresaHistorial(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}
+                    >
+                      <option value="TODAS">🏢 Todas las Empresas</option>
+                      {empresas.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+                      ))}
+                    </select>
+                  )}
+
+                  <select
+                    value={filtroZonaHistorial}
+                    onChange={(e) => setFiltroZonaHistorial(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}
+                  >
+                    <option value="TODAS">📍 Todas las Zonas</option>
+                    {[...new Set(listaBaseHistorial.map(o => o.zona).filter(Boolean))].map(z => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filtroEstadoHistorial}
+                    onChange={(e) => setFiltroEstadoHistorial(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}
+                  >
+                    <option value="TODAS">Todos los Estados</option>
+                    <option value="COMPLETADA">Completadas</option>
+                    <option value="EN_PROCESO">En Proceso</option>
+                    <option value="EN_CAMINO">En Camino</option>
+                    <option value="ASIGNADA">Asignadas</option>
+                    <option value="SOLICITADA">Solicitadas</option>
+                  </select>
+
+                  <select
+                    value={filtroDisputaHistorial}
+                    onChange={(e) => setFiltroDisputaHistorial(e.target.value)}
+                    style={{ 
+                      padding: '8px 12px', 
+                      borderRadius: 8, 
+                      border: filtroDisputaHistorial === 'CON_DISPUTA' ? '1.5px solid #EF4444' : '1px solid #CBD5E1', 
+                      fontSize: '0.82rem', 
+                      fontWeight: 700, 
+                      color: filtroDisputaHistorial === 'CON_DISPUTA' ? '#DC2626' : '#334155',
+                      background: filtroDisputaHistorial === 'CON_DISPUTA' ? '#FEF2F2' : 'white'
+                    }}
+                  >
+                    <option value="TODAS">⚖️ Todas (Disputas y Normales)</option>
+                    <option value="CON_DISPUTA">⚠️ Solo con Reclamo / Disputa</option>
+                    <option value="SIN_DISPUTA">✅ Solo Sin Incidencias</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* TABLA DE AUDITORÍA Y EXPEDIENTES */}
+              <div className="table-responsive" style={{ background: 'white', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', textAlign: 'left', fontSize: '0.78rem', color: '#64748B', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '12px 16px' }}>Código & Fecha</th>
+                      <th style={{ padding: '12px 16px' }}>Cliente</th>
+                      <th style={{ padding: '12px 16px' }}>Dirección & GPS</th>
+                      <th style={{ padding: '12px 16px' }}>Personal / Cuadrilla</th>
+                      {currentUser.rol === 'SUPER_ADMIN' && <th style={{ padding: '12px 16px' }}>Empresa</th>}
+                      <th style={{ padding: '12px 16px' }}>Estado</th>
+                      <th style={{ padding: '12px 16px' }}>Incidencia / Disputa</th>
+                      <th style={{ padding: '12px 16px' }}>Monto</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right' }}>Expediente Forense</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ordenesHistorialFiltradas.length === 0 ? (
+                      <tr>
+                        <td colSpan={currentUser.rol === 'SUPER_ADMIN' ? 9 : 8} style={{ padding: 40, textAlign: 'center', color: '#64748B' }}>
+                          <FileText size={36} color="#CBD5E1" style={{ margin: '0 auto 10px' }} />
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#334155' }}>No se encontraron órdenes con los filtros seleccionados</div>
+                          <div style={{ fontSize: '0.8rem', marginTop: 4 }}>Ajusta la búsqueda o selecciona "Todas" para ver más expedientes.</div>
+                        </td>
+                      </tr>
+                    ) : (
+                      ordenesHistorialFiltradas.map(ord => {
+                        const trab = trabajadores.find(t => t.id === ord.trabajador_id);
+                        const emp = empresas.find(e => e.id === ord.empresa_id);
+                        const tieneDisputa = ord.disputa_asociada || reclamos.find(r => r.orden_id === ord.id || r.orden_id === ord.codigo_seguimiento);
+
+                        return (
+                          <tr key={ord.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 800, color: '#0F172A', fontFamily: 'monospace', fontSize: '0.88rem' }}>
+                                {ord.codigo_seguimiento}
+                              </div>
+                              <div style={{ fontSize: '0.74rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                                <Clock size={12} />
+                                <span>{ord.fecha_servicio || ord.hora_programada}</span>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 700, color: '#1E293B', fontSize: '0.85rem' }}>{ord.cliente_nombre}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Phone size={11} />
+                                <span>{ord.cliente_telefono}</span>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px', maxWidth: 220 }}>
+                              <div style={{ fontSize: '0.82rem', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ord.direccion}>
+                                {ord.direccion}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                                <span style={{ fontSize: '0.72rem', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4, color: '#475569', fontWeight: 600 }}>
+                                  {ord.zona}
+                                </span>
+                                {ord.coordenadas_gps && (
+                                  <a 
+                                    href={`https://www.google.com/maps?q=${encodeURIComponent(ord.coordenadas_gps)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.7rem', color: '#0284C7', textDecoration: 'none', fontWeight: 700 }}
+                                    title="Ver coordenadas GPS en Google Maps"
+                                  >
+                                    <MapPin size={11} />
+                                    <span>GPS</span>
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              {trab ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <img 
+                                    src={trab.foto} 
+                                    alt={trab.nombre} 
+                                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} 
+                                  />
+                                  <div>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1E293B' }}>{trab.nombre}</div>
+                                    <div style={{ fontSize: '0.7rem', color: '#64748B' }}>CI: {trab.ci}</div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '0.76rem', color: '#94A3B8', fontStyle: 'italic' }}>Sin asignar</span>
+                              )}
+                            </td>
+
+                            {currentUser.rol === 'SUPER_ADMIN' && (
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155' }}>
+                                  {emp?.nombre || 'Empresa No Asignada'}
+                                </div>
+                              </td>
+                            )}
+
+                            <td style={{ padding: '12px 16px' }}>
+                              <span className={`status-badge status-${ord.estado_actual.toLowerCase()}`} style={{ fontSize: '0.72rem', padding: '3px 8px' }}>
+                                {ord.estado_actual}
+                              </span>
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              {tieneDisputa ? (
+                                <span style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: 4, 
+                                  background: '#FEF2F2', 
+                                  color: '#DC2626', 
+                                  border: '1px solid #FECACA', 
+                                  padding: '3px 8px', 
+                                  borderRadius: 6, 
+                                  fontSize: '0.72rem', 
+                                  fontWeight: 800 
+                                }}>
+                                  <AlertCircle size={12} />
+                                  <span>{tieneDisputa.ticket_id || 'RECLAMO'}</span>
+                                </span>
+                              ) : (
+                                <span style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: 4, 
+                                  background: '#F0FDF4', 
+                                  color: '#15803D', 
+                                  border: '1px solid #BBF7D0', 
+                                  padding: '3px 8px', 
+                                  borderRadius: 6, 
+                                  fontSize: '0.72rem', 
+                                  fontWeight: 600 
+                                }}>
+                                  <Check size={12} />
+                                  <span>Sin disputas</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '12px 16px' }}>
+                              <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '0.85rem' }}>
+                                {ord.monto_total?.toFixed(2)} BOB
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748B' }}>{ord.metodo_pago}</div>
+                            </td>
+
+                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                              <button
+                                className="btn-outline btn-sm"
+                                style={{ gap: 5, fontSize: '0.75rem', borderColor: tieneDisputa ? '#EF4444' : '#CBD5E1', color: tieneDisputa ? '#DC2626' : '#0284C7' }}
+                                onClick={() => {
+                                  setExpedienteTrabajoSeleccionado(ord);
+                                  setModalExpedienteTrabajoOpen(true);
+                                }}
+                              >
+                                <FileText size={13} />
+                                <span>Ver Expediente</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -6522,6 +6990,344 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* =====================================================================
+          MODAL: EXPEDIENTE FORENSE DE TRABAJO & AUDITORÍA DE DISPUTA
+         ===================================================================== */}
+      {modalExpedienteTrabajoOpen && expedienteTrabajoSeleccionado && (() => {
+        const ord = expedienteTrabajoSeleccionado;
+        const trab = trabajadores.find(t => t.id === ord.trabajador_id);
+        const emp = empresas.find(e => e.id === ord.empresa_id);
+        const disp = ord.disputa_asociada || reclamos.find(r => r.orden_id === ord.id || r.orden_id === ord.codigo_seguimiento);
+        const fin = calcularOrdenFinanzas(ord);
+
+        return (
+          <div className="modal-overlay" onClick={() => setModalExpedienteTrabajoOpen(false)}>
+            <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 840, width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+              
+              {/* Header */}
+              <div className="modal-header" style={{ borderBottom: '1px solid #E2E8F0', paddingBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ background: '#E0F2FE', padding: 8, borderRadius: 10, color: '#0284C7', display: 'flex' }}>
+                    <FileText size={22} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                        Expediente de Trabajo: {ord.codigo_seguimiento}
+                      </h3>
+                      <span className={`status-badge status-${ord.estado_actual.toLowerCase()}`} style={{ fontSize: '0.72rem' }}>
+                        {ord.estado_actual}
+                      </span>
+                    </div>
+                    <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: '#64748B' }}>
+                      {ord.servicio} • Fecha: {ord.fecha_servicio || ord.hora_programada}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setModalExpedienteTrabajoOpen(false)} 
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748B', padding: 4 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="modal-body" style={{ overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                
+                {/* Banner de Disputa / Incidencia */}
+                {disp ? (
+                  <div style={{ 
+                    background: '#FEF2F2', 
+                    border: '1.5px solid #FCA5A5', 
+                    borderRadius: 12, 
+                    padding: '14px 16px', 
+                    display: 'flex', 
+                    alignItems: 'flex-start', 
+                    gap: 12 
+                  }}>
+                    <AlertCircle size={22} color="#DC2626" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontWeight: 800, color: '#991B1B', fontSize: '0.9rem' }}>
+                          ⚠️ DISPUTA O RECLAMO REGISTRADO ({disp.ticket_id || disp.id || 'INCIDENCIA'})
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          fontWeight: 800, 
+                          background: '#EF4444', 
+                          color: 'white', 
+                          padding: '2px 8px', 
+                          borderRadius: 6 
+                        }}>
+                          SEVERIDAD: {disp.severidad || 'MEDIA'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.83rem', color: '#7F1D1D', marginTop: 4, fontWeight: 500 }}>
+                        <strong>Motivo del Reclamo:</strong> "{disp.motivo || disp.descripcion}"
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: '#991B1B', marginTop: 4 }}>
+                        Estatus actual de mediación: <strong>{disp.estado || 'EN_REVISION'}</strong>. Usa los registros GPS y fotografías de abajo para la resolución técnica.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    background: '#F0FDF4', 
+                    border: '1px solid #BBF7D0', 
+                    borderRadius: 10, 
+                    padding: '10px 14px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 10,
+                    fontSize: '0.8rem',
+                    color: '#15803D',
+                    fontWeight: 600
+                  }}>
+                    <CheckCircle2 size={18} color="#16A34A" />
+                    <span>Servicio verificado. No existen quejas, disputas ni incidentes abiertos para este servicio.</span>
+                  </div>
+                )}
+
+                {/* 2 COLUMNAS PRINCIPALES */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                  
+                  {/* COLUMNA IZQUIERDA: Ubicación, Cliente, Limpiador & Finanzas */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    
+                    {/* Ubicación y Geolocalización */}
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <MapPin size={15} color="#0284C7" />
+                        <span>Ubicación & Verificación Geográfica</span>
+                      </div>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>
+                        {ord.direccion}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748B', marginBottom: 8 }}>
+                        Zona: <strong>{ord.zona}</strong> • Ambientes: {ord.ambientes_resumen || 'Estándar'}
+                      </div>
+
+                      <div style={{ background: 'white', padding: 10, borderRadius: 8, border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.76rem' }}>
+                          <span style={{ color: '#64748B' }}>Coordenadas GPS:</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
+                            {ord.coordenadas_gps || '-17.7685, -63.1821'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.76rem' }}>
+                          <span style={{ color: '#64748B' }}>Arribo Check-in GPS:</span>
+                          <span className="dossier-gps-badge" style={{ padding: '2px 6px', fontSize: '0.72rem' }}>
+                            <Navigation size={11} />
+                            <span>{ord.hora_llegada_gps || '09:48 AM'}</span>
+                          </span>
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <a
+                            href={`https://www.google.com/maps?q=${encodeURIComponent(ord.coordenadas_gps || '-17.7685, -63.1821')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-outline btn-sm"
+                            style={{ width: '100%', justifyContent: 'center', textDecoration: 'none', gap: 6, fontSize: '0.76rem' }}
+                          >
+                            <ExternalLink size={12} />
+                            <span>Abrir Posición en Google Maps</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ficha Cliente & Ficha Limpiador */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {/* Cliente */}
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 12 }}>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: 6 }}>
+                          Cliente
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: '0.84rem', color: '#0F172A' }}>
+                          {ord.cliente_nombre}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: '#0284C7', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Phone size={12} />
+                          <span>{ord.cliente_telefono}</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 4 }}>
+                          App Móvil Verificada
+                        </div>
+                      </div>
+
+                      {/* Limpiador Asignado */}
+                      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 12 }}>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: 6 }}>
+                          Personal Asignado
+                        </div>
+                        {trab ? (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <img src={trab.foto} alt={trab.nombre} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                              <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {trab.nombre}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: 3 }}>
+                              CI: {trab.ci}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#0284C7' }}>
+                              Tel: {trab.telefono}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>Sin asignar</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Desglose Financiero */}
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Liquidación del Trabajo</span>
+                        <span style={{ color: '#059669' }}>{ord.metodo_pago}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '3px 0' }}>
+                        <span style={{ color: '#64748B' }}>Total Cobrado al Cliente:</span>
+                        <strong style={{ color: '#0F172A' }}>{ord.monto_total?.toFixed(2)} BOB</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', padding: '3px 0' }}>
+                        <span style={{ color: '#64748B' }}>Comisión Plataforma ({fin.tasa_comision}%):</span>
+                        <span style={{ color: '#EF4444', fontWeight: 600 }}>- {fin.comision_limpygo.toFixed(2)} BOB</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', padding: '6px 0 0 0', borderTop: '1px dashed #CBD5E1', marginTop: 4 }}>
+                        <strong style={{ color: '#0F172A' }}>Neto Empresa:</strong>
+                        <strong style={{ color: '#059669', fontSize: '0.95rem' }}>{fin.neto_empresa.toFixed(2)} BOB</strong>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* COLUMNA DERECHA: Bitácora Forense Cronológica y Fotos */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    
+                    {/* Bitácora Cronológica de Eventos */}
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Clock size={15} color="#0284C7" />
+                        <span>Bitácora Cronológica & Trazabilidad Forense</span>
+                      </div>
+
+                      <div className="timeline-container" style={{ paddingLeft: 16 }}>
+                        {(ord.bitacora_trazabilidad && ord.bitacora_trazabilidad.length > 0 ? ord.bitacora_trazabilidad : [
+                          { hora: '08:30 AM', evento: 'Servicio Solicitado en App', detalle: 'Cliente solicitó reserva en la plataforma', estado: 'SOLICITADA' },
+                          { hora: '09:00 AM', evento: 'Asignación Confirmada', detalle: 'Personal asignado para la atención', estado: 'ASIGNADA' },
+                          { hora: '09:30 AM', evento: 'Desplazamiento iniciado', detalle: 'Cuadrilla en camino al condominio', estado: 'EN_CAMINO' },
+                          { hora: '09:48 AM', evento: 'Check-in GPS en portería', detalle: 'Llegada registrada por geolocalización', estado: 'LLEGUE' },
+                          { hora: '10:00 AM', evento: 'Inicio de labores', detalle: 'Fotos del antes capturadas y validadas', estado: 'EN_PROCESO' }
+                        ]).map((step, idx) => (
+                          <div key={idx} className={`timeline-step ${idx === 0 ? 'timeline-step-completed' : ''}`}>
+                            <div className="timeline-time">{step.hora}</div>
+                            <div className="timeline-title">{step.evento}</div>
+                            <div className="timeline-desc">{step.detalle}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Evidencia Fotográfica (Antes vs Después) */}
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Camera size={15} color="#0284C7" />
+                        <span>Inspección Fotográfica (Antes vs Después)</span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        {/* Foto Antes */}
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', marginBottom: 4 }}>
+                            Estado Inicial (Antes)
+                          </div>
+                          <img
+                            src={ord.evidencias?.antes || 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&q=80'}
+                            alt="Evidencia Antes"
+                            style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                          />
+                          <div style={{ fontSize: '0.68rem', color: '#64748B', textAlign: 'center', marginTop: 2 }}>
+                            Auditoría de Llegada
+                          </div>
+                        </div>
+
+                        {/* Foto Después */}
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', marginBottom: 4 }}>
+                            Resultado Final (Entrega)
+                          </div>
+                          <img
+                            src={ord.evidencias?.despues || 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=400&q=80'}
+                            alt="Evidencia Después"
+                            style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 8, border: '1px solid #CBD5E1' }}
+                          />
+                          <div style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 700, textAlign: 'center', marginTop: 2 }}>
+                            ✓ Entrega Conforme
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                  Folio Certificado LimpyGo Forensics: <strong>{ord.codigo_seguimiento}-SEC</strong>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    type="button" 
+                    className="btn-outline" 
+                    onClick={() => {
+                      window.print();
+                    }}
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    <span>Imprimir Expediente</span>
+                  </button>
+
+                  {disp && currentUser.rol === 'SUPER_ADMIN' && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ background: '#DC2626', borderColor: '#DC2626', fontSize: '0.8rem' }}
+                      onClick={() => {
+                        setModalExpedienteTrabajoOpen(false);
+                        setActiveTab('soporte_reclamos');
+                        mostrarToast(`⚖️ Derivado a Mesa de Reclamos para gestionar ticket ${disp.ticket_id || ''}`);
+                      }}
+                    >
+                      <AlertCircle size={14} />
+                      <span>Resolver en Disputas</span>
+                    </button>
+                  )}
+
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    onClick={() => setModalExpedienteTrabajoOpen(false)}
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    Cerrar Expediente
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
