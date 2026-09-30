@@ -18,6 +18,8 @@ npm-debug.log
 yarn-error.log
 dist/
 build/
+apks/
+*.apk
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

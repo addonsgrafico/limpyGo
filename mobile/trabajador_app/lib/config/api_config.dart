@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // Base URL adaptativa: localhost en Web/Windows y 10.0.2.2 en Emulador Android
-  static String get baseUrl =>
-      kIsWeb ? 'http://localhost:8000/api/v1' : 'http://10.0.2.2:8000/api/v1';
+  // URL oficial del Backend de Producción en Render
+  static const String productionUrl = 'https://limpygo.onrender.com/api/v1';
+
+  // Usar producción para el APK conectado a Render
+  static String get baseUrl => productionUrl;
 
   static String get login => '$baseUrl/auth/login';
   static String get perfil => '$baseUrl/auth/perfil';

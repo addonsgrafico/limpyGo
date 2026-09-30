@@ -20,7 +20,7 @@ const getApiBaseUrl = () => {
   }
 
   // 3. Fallback a URL pública oficial de producción en Render
-  return 'https://limpygo-backend.onrender.com/api/v1';
+  return 'https://limpygo.onrender.com/api/v1';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
