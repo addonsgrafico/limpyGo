@@ -53,14 +53,16 @@ Esta guía detalla los pasos exactos y las variables de entorno necesarias para 
 | `DB_PASSWORD` | `TuContraseñaSupabase` | Contraseña de Supabase |
 | `DB_SSLMODE` | `require` | Obligatorio para Supabase |
 | `AUTO_MIGRATE` | `true` | Ejecuta migraciones automáticamente al arrancar |
+| `AUTO_SEED` | `true` | Crea usuarios, empresas, servicios y órdenes demo automáticamente |
 | `FRONTEND_URL` | `https://tu-proyecto.vercel.app` | URL de tu frontend en Vercel |
 
 5. Haz clic en **Create Web Service**.
-6. **Poblar datos iniciales:** Una vez que el servicio esté `Live`, abre la pestaña **Shell** en Render y ejecuta:
-   ```bash
-   php artisan db:seed --force
-   ```
-   Esto creará los usuarios iniciales (`admin@limpygo.com`, `contacto@brillante.com`, etc.) y las empresas aliadas en Supabase.
+6. **Credenciales iniciales creadas en Supabase:**
+   * **SuperAdmin (Plataforma Global):** `admin@limpygo.com` / Clave: `password`
+   * **Empresa Brillante Express:** `empresa@brillante.com` / Clave: `password`
+   * **Empresa EcoClean Bolivia:** `empresa@ecoclean.com` / Clave: `password`
+   * **Personal de Limpieza (App Móvil):** `maria.limpieza@brillante.com` / Clave: `password`
+   * **Cliente Demo:** `cliente@example.com` / Clave: `password`
 
 ---
 

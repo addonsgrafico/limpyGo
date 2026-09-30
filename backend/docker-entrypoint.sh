@@ -16,6 +16,11 @@ fi
 if [ "$AUTO_MIGRATE" = "true" ]; then
     echo "Ejecutando migraciones de base de datos..."
     php artisan migrate --force || true
+
+    if [ "$AUTO_SEED" = "true" ]; then
+        echo "Poblando base de datos con Seeder inicial..."
+        php artisan db:seed --force || true
+    fi
 fi
 
 PORT="${PORT:-8000}"

@@ -6,12 +6,33 @@ use App\Http\Controllers\Api\V1\DireccionController;
 use App\Http\Controllers\Api\V1\OrdenController;
 use App\Http\Controllers\Api\V1\TrabajadorApiController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
+    // 0. Health Check de la API y Conexión de Base de Datos
+    Route::get('health', function () {
+        $dbStatus = 'disconnected';
+        try {
+            DB::connection()->getPdo();
+            $dbStatus = 'connected';
+        } catch (\Exception $e) {
+            $dbStatus = 'error: ' . $e->getMessage();
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'servicio' => 'LimpyGo API Core',
+            'version' => '1.0.0',
+            'timestamp' => now()->toIso8601String(),
+            'database' => $dbStatus,
+        ]);
+    });
+
     // 1. Autenticación Pública Móvil y Web
     Route::prefix('auth')->group(function () {
+        Route::get('usuarios-demo', [AuthController::class, 'usuariosDemo']);
         Route::post('registro-cliente', [AuthController::class, 'registroCliente']);
         Route::post('enviar-otp-verificacion', [AuthController::class, 'enviarOtpVerificacion']);
         Route::post('verificar-otp-registro', [AuthController::class, 'verificarOtpRegistro']);
@@ -58,20 +79,41 @@ Route::prefix('v1')->group(function () {
         Route::post('ordenes/{codigoSeguimiento}/evidencias', [TrabajadorApiController::class, 'subirEvidencia']);
     });
 
-    // 5. Rutas de Empresa de Limpieza (Autogestión de personal y designación)
+    // 5. Rutas de Empresa de Limpieza (Autogestión de personal, órdenes y catálogo)
     Route::prefix('empresa')->middleware('auth:sanctum')->group(function () {
         Route::get('perfil', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'getPerfil']);
         Route::put('perfil', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'updatePerfil']);
+        
+        // Gestión de Órdenes
+        Route::get('ordenes', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'indexOrdenes']);
         Route::post('ordenes/{codigoSeguimiento}/asignar-trabajador', [OrdenController::class, 'asignarTrabajador']);
+        Route::post('ordenes/{codigoSeguimiento}/aprobar-evidencia', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'aprobarEvidencia']);
+
+        // Gestión de Trabajadores
         Route::get('trabajadores', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'indexTrabajadores']);
         Route::post('trabajadores', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'storeTrabajador']);
         Route::put('trabajadores/{id}', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'updateTrabajador']);
         Route::delete('trabajadores/{id}', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'deleteTrabajador']);
+
         // Catálogo de Servicios y Tarifas de la Empresa
         Route::get('servicios', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'indexServicios']);
         Route::post('servicios', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'storeServicio']);
         Route::put('servicios/{servicioId}', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'updateServicioPrecio']);
         Route::delete('servicios/{servicioId}', [\App\Http\Controllers\Api\V1\EmpresaApiController::class, 'destroyServicio']);
+    });
+
+    // 6. Rutas de Super Administrador (LimpyGo Global Platform)
+    Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
+        Route::get('dashboard', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'dashboard']);
+        Route::get('empresas', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'indexEmpresas']);
+        Route::post('empresas', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'storeEmpresa']);
+        Route::put('empresas/{id}', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'updateEmpresa']);
+        Route::get('usuarios', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'indexUsuarios']);
+        Route::post('usuarios', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'storeUsuario']);
+        Route::put('usuarios/{id}', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'updateUsuario']);
+        Route::get('ordenes', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'indexOrdenes']);
+        Route::get('politicas', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'getPoliticas']);
+        Route::put('politicas', [\App\Http\Controllers\Api\V1\AdminApiController::class, 'updatePoliticas']);
     });
 });
 

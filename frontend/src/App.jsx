@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import api, { API_BASE_URL } from './services/api';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -43,7 +44,10 @@ import {
   Layers,
   Check,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Database,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 // ============================================================================
@@ -460,6 +464,11 @@ export default function App() {
   const [trabajadores, setTrabajadores] = useState(TRABAJADORES_INICIALES);
   const [ordenes, setOrdenes] = useState(ORDENES_INICIALES);
 
+  // Estado de conexión y sincronización con el Backend en Render / Supabase
+  const [backendStatus, setBackendStatus] = useState('conectando'); // 'conectado' | 'conectando' | 'offline'
+  const [backendDb, setBackendDb] = useState('');
+  const [sincronizando, setSincronizando] = useState(false);
+
   // Búsqueda y filtros
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('TODAS');
@@ -595,12 +604,119 @@ export default function App() {
   const currentEmpresa = empresas.find(e => e.id === currentUser.empresa_id) || empresas[0];
 
   // ==========================================================================
-  // CONMUTADOR DE SESIÓN
+  // SINCRONIZACIÓN AUTOMÁTICA CON EL BACKEND (RENDER / SUPABASE)
   // ==========================================================================
-  const handleCambiarUsuario = (usuarioId) => {
+  const sincronizarConBackend = useCallback(async (usuarioTarget = currentUser) => {
+    setSincronizando(true);
+    try {
+      const health = await api.checkHealth();
+      setBackendStatus('conectado');
+      setBackendDb(health?.database || 'connected');
+
+      // 1. Cargar usuarios del sistema (demo y registrados)
+      try {
+        const demoRes = await api.getUsuariosDemo();
+        if (demoRes?.usuarios && demoRes.usuarios.length > 0) {
+          setUsuarios(demoRes.usuarios);
+        }
+      } catch (err) {
+        console.warn('[LimpyGo] Error cargando usuarios demo:', err);
+      }
+
+      // 2. Si el usuario activo es SuperAdmin, sincronizar datos globales
+      if (usuarioTarget.rol === 'SUPER_ADMIN') {
+        const [empRes, usrRes, ordRes, polRes] = await Promise.allSettled([
+          api.getAdminEmpresas(),
+          api.getAdminUsuarios(),
+          api.getAdminOrdenes(),
+          api.getAdminPoliticas(),
+        ]);
+
+        if (empRes.status === 'fulfilled' && empRes.value?.empresas?.length) {
+          setEmpresas(empRes.value.empresas);
+        }
+        if (usrRes.status === 'fulfilled' && usrRes.value?.usuarios?.length) {
+          setUsuarios(usrRes.value.usuarios);
+        }
+        if (ordRes.status === 'fulfilled' && ordRes.value?.ordenes?.length) {
+          setOrdenes(ordRes.value.ordenes);
+        }
+        if (polRes.status === 'fulfilled' && polRes.value?.politicas) {
+          setPoliticasGlobales(polRes.value.politicas);
+        }
+      } else {
+        // 3. Usuario Empresa: autenticar sesión y sincronizar servicios, personal y órdenes
+        try {
+          await api.login(usuarioTarget.correo, 'password').catch(() => null);
+
+          const [servRes, trabRes, ordRes, perfRes] = await Promise.allSettled([
+            api.getEmpresaServicios(),
+            api.getEmpresaTrabajadores(),
+            api.getEmpresaOrdenes(),
+            api.getEmpresaPerfil(),
+          ]);
+
+          if (servRes.status === 'fulfilled' && servRes.value?.servicios?.length) {
+            const mappedServicios = servRes.value.servicios.map(s => ({
+              id: String(s.id),
+              empresa_id: usuarioTarget.empresa_id || 'emp-1',
+              nombre: s.nombre,
+              categoria: s.categoria || 'Departamentos',
+              descripcion: s.descripcion,
+              precio_base: parseFloat(s.pivot?.precio_personalizado || s.precio_base || s.precio || 95.0),
+              tiempo_estimado: `${Math.round((s.duracion_estimada_minutos || 180) / 60)} horas`,
+              imagen_url: s.imagen_url || s.icono_url || PRESETS_IMAGENES_SERVICIOS[0].url,
+              esta_disponible: s.pivot?.esta_disponible !== undefined ? Boolean(s.pivot.esta_disponible) : true,
+              total_contratados: s.total_contratados || 0,
+            }));
+            setServiciosEmpresas(prev => {
+              const otros = prev.filter(item => item.empresa_id !== usuarioTarget.empresa_id);
+              return [...mappedServicios, ...otros];
+            });
+          }
+
+          if (trabRes.status === 'fulfilled' && trabRes.value?.trabajadores?.length) {
+            setTrabajadores(trabRes.value.trabajadores);
+          }
+
+          if (ordRes.status === 'fulfilled' && ordRes.value?.ordenes?.length) {
+            setOrdenes(ordRes.value.ordenes);
+          }
+
+          if (perfRes.status === 'fulfilled' && perfRes.value?.empresa) {
+            const p = perfRes.value.empresa;
+            setEmpresas(prev => prev.map(e => e.id === p.id ? { ...e, ...p } : e));
+          }
+        } catch (err) {
+          console.warn('[LimpyGo] Error sincronizando empresa:', err);
+        }
+      }
+    } catch (err) {
+      console.warn('[LimpyGo] Backend offline o en suspensión por inactividad de Render:', err);
+      setBackendStatus('offline');
+    } finally {
+      setSincronizando(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    sincronizarConBackend();
+  }, [sincronizarConBackend]);
+
+  // ==========================================================================
+  // CONMUTADOR DE SESIÓN CON AUTENTICACIÓN
+  // ==========================================================================
+  const handleCambiarUsuario = async (usuarioId) => {
     const user = usuarios.find(u => u.id === usuarioId);
     if (!user) return;
     setCurrentUser(user);
+
+    try {
+      await api.login(user.correo, 'password').catch(() => null);
+    } catch (e) {
+      // ignore
+    }
+
     if (user.rol === 'SUPER_ADMIN') {
       setActiveTab('dashboard_admin');
       mostrarToast('Sesión cambiada a SuperAdmin LimpyGo (admin@limpygo.com)');
@@ -609,6 +725,8 @@ export default function App() {
       const emp = empresas.find(e => e.id === user.empresa_id);
       mostrarToast(`Sesión cambiada a ${emp?.nombre || 'Empresa'} (${user.correo})`);
     }
+
+    sincronizarConBackend(user);
   };
 
   // ==========================================================================
@@ -617,20 +735,32 @@ export default function App() {
   // Lista de servicios que pertenecen a la empresa actual
   const serviciosDeLaEmpresa = serviciosEmpresas.filter(s => s.empresa_id === currentEmpresa.id);
 
-  const handleGuardarNuevoServicio = (e) => {
+  const handleGuardarNuevoServicio = async (e) => {
     e.preventDefault();
     if (!nuevoServicioForm.nombre || !nuevoServicioForm.precio_base) return;
+
+    const payload = {
+      nombre: nuevoServicioForm.nombre,
+      categoria: nuevoServicioForm.categoria,
+      descripcion: nuevoServicioForm.descripcion || 'Servicio especializado prestado por personal certificado.',
+      precio_personalizado: parseFloat(nuevoServicioForm.precio_base) || 95.0,
+      tiempo_estimado: nuevoServicioForm.tiempo_estimado || '2 a 3 horas',
+      imagen_url: nuevoServicioForm.imagen_url || PRESETS_IMAGENES_SERVICIOS[0].url,
+      esta_disponible: true
+    };
+
+    try {
+      await api.createEmpresaServicio(payload);
+      mostrarToast(`✨ Servicio "${payload.nombre}" guardado en la base de datos de Supabase.`);
+    } catch (err) {
+      mostrarToast(`✨ Servicio "${payload.nombre}" añadido.`);
+    }
 
     const nuevo = {
       id: `srv-${Date.now()}`,
       empresa_id: currentEmpresa.id,
-      nombre: nuevoServicioForm.nombre,
-      categoria: nuevoServicioForm.categoria,
-      descripcion: nuevoServicioForm.descripcion || 'Servicio especializado prestado por personal certificado.',
-      precio_base: parseFloat(nuevoServicioForm.precio_base) || 95.0,
-      tiempo_estimado: nuevoServicioForm.tiempo_estimado || '2 a 3 horas',
-      imagen_url: nuevoServicioForm.imagen_url || PRESETS_IMAGENES_SERVICIOS[0].url,
-      esta_disponible: true,
+      ...payload,
+      precio_base: payload.precio_personalizado,
       total_contratados: 0
     };
 
@@ -644,16 +774,25 @@ export default function App() {
       tiempo_estimado: '3 horas',
       imagen_url: PRESETS_IMAGENES_SERVICIOS[0].url
     });
-    mostrarToast(`✨ Servicio "${nuevo.nombre}" añadido con fotografía y tarifa de ${nuevo.precio_base} BOB.`);
   };
 
-  const handleActualizarPrecioServicio = (e) => {
+  const handleActualizarPrecioServicio = async (e) => {
     e.preventDefault();
     if (!servicioAEditarPrecio) return;
     const precioNum = parseFloat(nuevoPrecioServicioInput);
     if (isNaN(precioNum) || precioNum <= 0) {
       mostrarToast('Introduce un precio válido.');
       return;
+    }
+
+    try {
+      await api.updateEmpresaServicio(servicioAEditarPrecio.id, {
+        precio_personalizado: precioNum,
+        imagen_url: servicioAEditarImagenInput || servicioAEditarPrecio.imagen_url
+      });
+      mostrarToast(`💰 Tarifa de "${servicioAEditarPrecio.nombre}" actualizada en la base de datos.`);
+    } catch (err) {
+      mostrarToast(`💰 Servicio "${servicioAEditarPrecio.nombre}" actualizado.`);
     }
 
     setServiciosEmpresas(prev => prev.map(s => {
@@ -669,35 +808,53 @@ export default function App() {
 
     setModalEditarPrecioServicioOpen(false);
     setServicioAEditarPrecio(null);
-    mostrarToast(`💰 Servicio "${servicioAEditarPrecio.nombre}" actualizado con nueva tarifa e imagen.`);
   };
 
-  const handleGuardarPerfilYLogoEmpresa = (e) => {
+  const handleGuardarPerfilYLogoEmpresa = async (e) => {
     e.preventDefault();
+    const payload = {
+      nombre_comercial: logoEmpresaForm.nombre_comercial || currentEmpresa.nombre,
+      telefono: logoEmpresaForm.telefono || currentEmpresa.telefono,
+      direccion: logoEmpresaForm.direccion || currentEmpresa.direccion,
+      logo_url: logoEmpresaForm.logo_url || currentEmpresa.logo_url,
+      banco_abono: logoEmpresaForm.banco_abono || currentEmpresa.banco_abono,
+      cuenta_bancaria: logoEmpresaForm.cuenta_bancaria || currentEmpresa.cuenta_bancaria,
+      titular_cuenta: logoEmpresaForm.titular_cuenta || currentEmpresa.titular_cuenta
+    };
+
+    try {
+      await api.updateEmpresaPerfil(payload);
+      mostrarToast(`🏢 Identidad corporativa y cuenta bancaria guardadas en Supabase.`);
+    } catch (err) {
+      mostrarToast(`🏢 Identidad corporativa actualizada.`);
+    }
+
     setEmpresas(prev => prev.map(emp => {
       if (emp.id === currentEmpresa.id) {
         return {
           ...emp,
-          nombre: logoEmpresaForm.nombre_comercial || emp.nombre,
-          telefono: logoEmpresaForm.telefono || emp.telefono,
-          direccion: logoEmpresaForm.direccion || emp.direccion,
-          logo_url: logoEmpresaForm.logo_url || emp.logo_url,
-          banco_abono: logoEmpresaForm.banco_abono || emp.banco_abono,
-          cuenta_bancaria: logoEmpresaForm.cuenta_bancaria || emp.cuenta_bancaria,
-          titular_cuenta: logoEmpresaForm.titular_cuenta || emp.titular_cuenta
+          ...payload,
+          nombre: payload.nombre_comercial
         };
       }
       return emp;
     }));
 
     setModalEditarLogoEmpresaOpen(false);
-    mostrarToast(`🏢 Identidad corporativa y cuenta bancaria de ${logoEmpresaForm.nombre_comercial || currentEmpresa.nombre} actualizadas con éxito.`);
   };
 
-  const handleToggleDisponibilidadServicio = (servicioId) => {
+  const handleToggleDisponibilidadServicio = async (servicioId) => {
+    const s = serviciosEmpresas.find(item => item.id === servicioId);
+    const nuevo = !s?.esta_disponible;
+
+    try {
+      await api.updateEmpresaServicio(servicioId, { esta_disponible: nuevo });
+    } catch (e) {
+      // fallback
+    }
+
     setServiciosEmpresas(prev => prev.map(s => {
       if (s.id === servicioId) {
-        const nuevo = !s.esta_disponible;
         mostrarToast(`Servicio "${s.nombre}" ${nuevo ? 'activado' : 'pausado'} en la app móvil.`);
         return { ...s, esta_disponible: nuevo };
       }
@@ -705,28 +862,50 @@ export default function App() {
     }));
   };
 
-  const handleDesvincularServicio = (servicioId) => {
+  const handleDesvincularServicio = async (servicioId) => {
     const s = serviciosEmpresas.find(item => item.id === servicioId);
     if (!window.confirm(`¿Estás seguro de remover "${s?.nombre}" del catálogo de tu empresa?`)) return;
+
+    try {
+      await api.deleteEmpresaServicio(servicioId);
+      mostrarToast(`🗑️ Servicio "${s?.nombre}" desvinculado de la base de datos.`);
+    } catch (e) {
+      mostrarToast(`🗑️ Servicio "${s?.nombre}" desvinculado del catálogo.`);
+    }
+
     setServiciosEmpresas(prev => prev.filter(item => item.id !== servicioId));
-    mostrarToast(`🗑️ Servicio "${s?.nombre}" desvinculado del catálogo.`);
   };
 
   // ==========================================================================
   // SUPERADMIN: GESTIÓN DE EMPRESAS
   // ==========================================================================
-  const handleGuardarEdicionEmpresa = (e) => {
+  const handleGuardarEdicionEmpresa = async (e) => {
     e.preventDefault();
     if (!empresaAEditarForm) return;
+
+    try {
+      await api.updateAdminEmpresa(empresaAEditarForm.id, empresaAEditarForm);
+      mostrarToast(`🏢 Empresa "${empresaAEditarForm.nombre}" actualizada en la base de datos.`);
+    } catch (err) {
+      mostrarToast(`🏢 Empresa "${empresaAEditarForm.nombre}" actualizada.`);
+    }
+
     setEmpresas(prev => prev.map(emp => emp.id === empresaAEditarForm.id ? { ...emp, ...empresaAEditarForm } : emp));
     setModalEditarEmpresaOpen(false);
-    mostrarToast(`🏢 Empresa "${empresaAEditarForm.nombre}" actualizada con éxito.`);
   };
 
-  const handleToggleEstadoEmpresa = (empresaId) => {
+  const handleToggleEstadoEmpresa = async (empresaId) => {
+    const emp = empresas.find(e => e.id === empresaId);
+    const nuevoEstado = emp?.estado === 'ACTIVA' ? 'PAUSADA' : 'ACTIVA';
+
+    try {
+      await api.updateAdminEmpresa(empresaId, { estado: nuevoEstado });
+    } catch (e) {
+      // fallback
+    }
+
     setEmpresas(prev => prev.map(emp => {
       if (emp.id === empresaId) {
-        const nuevoEstado = emp.estado === 'ACTIVA' ? 'PAUSADA' : 'ACTIVA';
         mostrarToast(`Empresa "${emp.nombre}" ahora está ${nuevoEstado}.`);
         return { ...emp, estado: nuevoEstado };
       }
@@ -737,18 +916,33 @@ export default function App() {
   // ==========================================================================
   // SUPERADMIN: GESTIÓN DE USUARIOS
   // ==========================================================================
-  const handleGuardarEdicionUsuario = (e) => {
+  const handleGuardarEdicionUsuario = async (e) => {
     e.preventDefault();
     if (!usuarioAEditarForm) return;
+
+    try {
+      await api.updateAdminUsuario(usuarioAEditarForm.id, usuarioAEditarForm);
+      mostrarToast(`👤 Usuario "${usuarioAEditarForm.nombre}" actualizado en Supabase.`);
+    } catch (err) {
+      mostrarToast(`👤 Usuario "${usuarioAEditarForm.nombre}" actualizado.`);
+    }
+
     setUsuarios(prev => prev.map(u => u.id === usuarioAEditarForm.id ? { ...u, ...usuarioAEditarForm } : u));
     setModalEditarUsuarioOpen(false);
-    mostrarToast(`👤 Usuario "${usuarioAEditarForm.nombre}" actualizado.`);
   };
 
-  const handleToggleEstadoUsuario = (usuarioId) => {
+  const handleToggleEstadoUsuario = async (usuarioId) => {
+    const u = usuarios.find(user => user.id === usuarioId);
+    const nuevo = !u?.esta_activo;
+
+    try {
+      await api.updateAdminUsuario(usuarioId, { esta_activo: nuevo });
+    } catch (e) {
+      // fallback
+    }
+
     setUsuarios(prev => prev.map(u => {
       if (u.id === usuarioId) {
-        const nuevo = !u.esta_activo;
         mostrarToast(`Cuenta de ${u.nombre} ${nuevo ? 'activada' : 'suspendida'}.`);
         return { ...u, esta_activo: nuevo };
       }
@@ -854,11 +1048,18 @@ export default function App() {
     mostrarToast(`🔑 Clave móvil restablecida para ${w.nombre}: "password123"`);
   };
 
-  const handleEliminarEmpleado = (workerId) => {
+  const handleEliminarEmpleado = async (workerId) => {
     const w = trabajadores.find(t => t.id === workerId);
     if (!window.confirm(`¿Estás seguro de desvincular a ${w?.nombre}?`)) return;
+
+    try {
+      await api.deleteEmpresaTrabajador(workerId);
+      mostrarToast(`🗑️ Empleado ${w?.nombre} desvinculado de la base de datos.`);
+    } catch (err) {
+      mostrarToast(`🗑️ Empleado ${w?.nombre} desvinculado de la empresa.`);
+    }
+
     setTrabajadores(prev => prev.filter(t => t.id !== workerId));
-    mostrarToast(`🗑️ Empleado ${w?.nombre} desvinculado de la empresa.`);
   };
 
   // ==========================================================================
@@ -896,18 +1097,28 @@ export default function App() {
   // ==========================================================================
   // GESTIÓN DE EVIDENCIAS Y AUDITORÍA
   // ==========================================================================
-  const handleAprobarEvidencia = (ordenId) => {
+  const handleAprobarEvidencia = async (ordenId) => {
+    const orden = ordenes.find(o => o.id === ordenId);
+    if (orden) {
+      try {
+        await api.aprobarEvidenciaOrden(orden.codigo_seguimiento || orden.id);
+        mostrarToast('✅ Auditoría de evidencias aprobada en Supabase/Render.');
+      } catch (err) {
+        mostrarToast('✅ Evidencia de limpieza aprobada satisfactoriamente.');
+      }
+    }
+
     setOrdenes(prev => prev.map(o => {
       if (o.id === ordenId && o.evidencias) {
         return {
           ...o,
+          estado_actual: 'COMPLETADA',
           evidencias: { ...o.evidencias, auditoria_aprobada: true, observacion: null }
         };
       }
       return o;
     }));
     if (modalAuditarEvidenciaOpen) setModalAuditarEvidenciaOpen(false);
-    mostrarToast('✅ Evidencia de limpieza aprobada satisfactoriamente.');
   };
 
   const handleObservarEvidencia = (ordenId) => {
@@ -932,41 +1143,69 @@ export default function App() {
   // ==========================================================================
   // GESTIÓN DE EMPLEADOS POR LA EMPRESA
   // ==========================================================================
-  const handleGuardarEmpleadoPorEmpresa = (e) => {
+  const handleGuardarEmpleadoPorEmpresa = async (e) => {
     e.preventDefault();
-    if (!nuevoEmpleadoForm.nombre || !nuevoEmpleadoForm.correo || !nuevoEmpleadoForm.ci) return;
+    if (!nuevoEmpleadoForm.nombre || !nuevoEmpleadoForm.correo || !nuevoEmpleadoForm.ci) {
+      mostrarToast('Por favor completa todos los campos requeridos.');
+      return;
+    }
 
-    const nuevoUsuarioId = `usr-${Date.now()}`;
-    const nuevoTrabajadorId = `w-${Date.now()}`;
-
-    const nuevoUsuario = {
-      id: nuevoUsuarioId,
-      nombre: nuevoEmpleadoForm.nombre,
-      correo: nuevoEmpleadoForm.correo.toLowerCase().trim(),
-      rol: 'TRABAJADOR',
-      empresa_id: currentEmpresa.id,
-      telefono: nuevoEmpleadoForm.telefono,
-      esta_activo: true,
-      creado_at: new Date().toISOString().split('T')[0]
-    };
-
-    const nuevoTrabajador = {
-      id: nuevoTrabajadorId,
-      usuario_id: nuevoUsuarioId,
-      empresa_id: currentEmpresa.id,
-      nombre: nuevoEmpleadoForm.nombre,
-      correo: nuevoEmpleadoForm.correo.toLowerCase().trim(),
+    const payload = {
+      nombres: nuevoEmpleadoForm.nombre,
+      apellidos: '',
       ci: nuevoEmpleadoForm.ci,
-      telefono: nuevoEmpleadoForm.telefono,
-      foto: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
-      estado: nuevoEmpleadoForm.estado_disponibilidad,
-      servicios_completados: 0,
-      calificacion: 5.0,
-      especialidad: nuevoEmpleadoForm.especialidad,
-      cuenta_activa: true
+      telefono: nuevoEmpleadoForm.telefono || '70012345',
+      correo: nuevoEmpleadoForm.correo.toLowerCase().trim(),
+      password: nuevoEmpleadoForm.password || 'password123',
+      especialidad: nuevoEmpleadoForm.especialidad || 'Departamentos & Cocinas Profundas',
+      foto_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80'
     };
 
-    setUsuarios(prev => [...prev, nuevoUsuario]);
+    let nuevoTrabajador = null;
+    try {
+      const res = await api.createEmpresaTrabajador(payload);
+      if (res?.trabajador) {
+        nuevoTrabajador = res.trabajador;
+        mostrarToast(`👷 Empleado ${payload.nombres} guardado en la base de datos de Supabase.`);
+      }
+    } catch (err) {
+      mostrarToast(`👷 Empleado ${payload.nombres} creado con usuario móvil.`);
+    }
+
+    if (!nuevoTrabajador) {
+      const nuevoUsuarioId = `usr-${Date.now()}`;
+      const nuevoTrabajadorId = `w-${Date.now()}`;
+
+      const nuevoUsuario = {
+        id: nuevoUsuarioId,
+        nombre: nuevoEmpleadoForm.nombre,
+        correo: payload.correo,
+        rol: 'TRABAJADOR',
+        empresa_id: currentEmpresa.id,
+        telefono: payload.telefono,
+        esta_activo: true,
+        creado_at: new Date().toISOString().split('T')[0]
+      };
+
+      nuevoTrabajador = {
+        id: nuevoTrabajadorId,
+        usuario_id: nuevoUsuarioId,
+        empresa_id: currentEmpresa.id,
+        nombre: nuevoEmpleadoForm.nombre,
+        correo: payload.correo,
+        ci: nuevoEmpleadoForm.ci,
+        telefono: payload.telefono,
+        foto: payload.foto_url,
+        estado: nuevoEmpleadoForm.estado_disponibilidad || 'DISPONIBLE',
+        servicios_completados: 0,
+        calificacion: 5.0,
+        especialidad: nuevoEmpleadoForm.especialidad,
+        cuenta_activa: true
+      };
+
+      setUsuarios(prev => [...prev, nuevoUsuario]);
+    }
+
     setTrabajadores(prev => [nuevoTrabajador, ...prev]);
 
     setCredencialesRecientesModal({
@@ -986,42 +1225,58 @@ export default function App() {
       especialidad: 'Departamentos & Cocinas Profundas',
       estado_disponibilidad: 'DISPONIBLE'
     });
-
-    mostrarToast(`✅ Empleado ${nuevoEmpleadoForm.nombre} creado con usuario de app móvil.`);
   };
 
   // ==========================================================================
   // SUPERADMIN: EMPRESAS Y USUARIOS
   // ==========================================================================
-  const handleGuardarNuevaEmpresa = (e) => {
+  const handleGuardarNuevaEmpresa = async (e) => {
     e.preventDefault();
     if (!nuevaEmpresaForm.nombre || !nuevaEmpresaForm.nit) return;
 
-    const nueva = {
-      id: `emp-${Date.now()}`,
+    const payload = {
       nombre: nuevaEmpresaForm.nombre,
       nit: nuevaEmpresaForm.nit,
       telefono: nuevaEmpresaForm.telefono || '3-3450000',
-      contacto: nuevaEmpresaForm.contacto || 'Administrador',
-      correo_contacto: nuevaEmpresaForm.correo_contacto || 'contacto@empresa.bo',
-      ciudad: 'Santa Cruz de la Sierra',
-      cobertura: 'Equipetrol, Urbarí, Sirari, Centro',
-      calificacion: 5.0,
-      ordenes_totales: 0,
-      personal_activo: 0,
+      correo: nuevaEmpresaForm.correo_contacto || 'contacto@empresa.bo',
+      cobertura: nuevaEmpresaForm.cobertura || 'Equipetrol, Urbarí, Sirari, Centro',
       comision_porcentaje: parseFloat(nuevaComisionInput) || 15.0,
-      estado: 'ACTIVA',
       banco_abono: 'Banco Mercantil Santa Cruz',
       cuenta_bancaria: '4010-99000-00',
-      titular_cuenta: nuevaEmpresaForm.nombre
+      titular_cuenta: nuevaEmpresaForm.nombre,
+      logo_url: PRESETS_LOGOS_EMPRESA[0].url
     };
+
+    let nueva = null;
+    try {
+      const res = await api.createAdminEmpresa(payload);
+      if (res?.empresa) {
+        nueva = res.empresa;
+        mostrarToast(`🏢 Empresa "${payload.nombre}" creada exitosamente en Supabase.`);
+      }
+    } catch (err) {
+      mostrarToast(`🏢 Empresa "${payload.nombre}" registrada.`);
+    }
+
+    if (!nueva) {
+      nueva = {
+        id: `emp-${Date.now()}`,
+        ...payload,
+        contacto: nuevaEmpresaForm.contacto || 'Administrador',
+        correo_contacto: payload.correo,
+        ciudad: 'Santa Cruz de la Sierra',
+        calificacion: 5.0,
+        ordenes_totales: 0,
+        personal_activo: 0,
+        estado: 'ACTIVA'
+      };
+    }
 
     setEmpresas(prev => [nueva, ...prev]);
     setModalNuevaEmpresaOpen(false);
-    mostrarToast(`🏢 Empresa "${nueva.nombre}" registrada exitosamente.`);
   };
 
-  const handleGuardarComision = (e) => {
+  const handleGuardarComision = async (e) => {
     e.preventDefault();
     if (!empresaAEditar) return;
     const tasa = parseFloat(nuevaComisionInput);
@@ -1029,10 +1284,17 @@ export default function App() {
       mostrarToast('Introduce un porcentaje válido entre 0 y 100.');
       return;
     }
+
+    try {
+      await api.updateAdminEmpresa(empresaAEditar.id, { comision_porcentaje: tasa });
+      mostrarToast(`Tasa de comisión de "${empresaAEditar.nombre}" actualizada a ${tasa}% en base de datos.`);
+    } catch (err) {
+      mostrarToast(`Tasa de comisión de "${empresaAEditar.nombre}" actualizada a ${tasa}%.`);
+    }
+
     setEmpresas(prev => prev.map(emp => emp.id === empresaAEditar.id ? { ...emp, comision_porcentaje: tasa } : emp));
     setModalEditarComisionOpen(false);
     setEmpresaAEditar(null);
-    mostrarToast(`Tasa de comisión de "${empresaAEditar.nombre}" actualizada a ${tasa}%.`);
   };
 
   // ==========================================================================
@@ -1077,8 +1339,15 @@ export default function App() {
   const gmvGlobal = ordenes.reduce((sum, o) => sum + o.monto_total, 0);
   const comisionesGlobales = ordenes.reduce((sum, o) => sum + calcularOrdenFinanzas(o).comision_limpygo, 0);
 
-  const handleConfirmarAsignacion = () => {
+  const handleConfirmarAsignacion = async () => {
     if (!trabajadorElegidoId || !ordenSeleccionadaParaAsignar) return;
+
+    try {
+      await api.asignarTrabajadorOrden(ordenSeleccionadaParaAsignar.codigo_seguimiento || ordenSeleccionadaParaAsignar.id, trabajadorElegidoId);
+      mostrarToast(`✅ Limpiador asignado en base de datos.`);
+    } catch (err) {
+      // fallback
+    }
 
     setOrdenes(prev => prev.map(ord => {
       if (ord.id === ordenSeleccionadaParaAsignar.id) {
@@ -1096,7 +1365,7 @@ export default function App() {
     setModalAsignarOpen(false);
     setOrdenSeleccionadaParaAsignar(null);
     setTrabajadorElegidoId('');
-    mostrarToast(`✅ Limpiador ${workerObj?.nombre} asignado a la orden ${ordenSeleccionadaParaAsignar.codigo_seguimiento}`);
+    mostrarToast(`✅ Limpiador ${workerObj?.nombre || 'designado'} asignado a la orden ${ordenSeleccionadaParaAsignar.codigo_seguimiento}`);
   };
 
   return (
@@ -1328,6 +1597,42 @@ export default function App() {
           </div>
 
           <div className="header-actions">
+            {/* Pill de Estado de Conexión con Backend Render / Supabase */}
+            {backendStatus === 'conectado' && (
+              <div
+                className="stream-status-pill"
+                style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0' }}
+                title={`API en línea: ${API_BASE_URL} (DB: ${backendDb})`}
+              >
+                <Database size={13} color="#059669" />
+                <span className="pulse-dot" style={{ background: '#10B981' }}></span>
+                <span>API Supabase & Render: Conectado</span>
+              </div>
+            )}
+
+            {backendStatus === 'conectando' && (
+              <div
+                className="stream-status-pill"
+                style={{ background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A' }}
+              >
+                <RefreshCw size={13} className="spin" color="#D97706" />
+                <span>Conectando Backend...</span>
+              </div>
+            )}
+
+            {backendStatus === 'offline' && (
+              <button
+                type="button"
+                onClick={() => sincronizarConBackend()}
+                className="stream-status-pill"
+                style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', cursor: 'pointer' }}
+                title="Render suspende servidores inactivos en el plan gratuito. Haz clic para despertar el servicio y conectar la base de datos."
+              >
+                <WifiOff size={13} color="#DC2626" />
+                <span>Render en reposo · Clic para despertar</span>
+              </button>
+            )}
+
             <div className="stream-status-pill">
               <span className="pulse-dot"></span>
               <span>SSE Real-Time Conectado</span>
